@@ -1,3 +1,6 @@
-be/__pycache__
-be/routes/__pycache__
-be/answer_db.db
+dashboard_be/__pycache__
+dashboard_be/routes/__pycache__
+dashboard_be/answer_db.db
+dashboard_fe/node_modules
+dashboard_fe/dist
+dashboard_fe/.env   
