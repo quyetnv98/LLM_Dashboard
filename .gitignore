@@ -4,3 +4,4 @@ dashboard_be/answer_db.db
 dashboard_fe/node_modules
 dashboard_fe/dist
 dashboard_fe/.env   
+dashboard_fe/Dockerfile

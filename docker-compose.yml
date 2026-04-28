@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./dashboard_be
+      dockerfile: Dockerfile
+    container_name: llm_dashboard_be
+    ports:
+      - "8021:8021"
+    environment:
+      - DB_PATH=/app/data/answer_db.db
+    volumes:
+      - ./data:/app/data
+    restart: always
+
+# Nếu sau này bạn muốn thêm Frontend, chỉ cần bỏ comment phần dưới:
+#  frontend:
+#    build: ./dashboard_fe
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      - backend

@@ -1,6 +1,6 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'; import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, } from 'recharts'; import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Table, Tag, Space, Button, Tooltip } from 'antd';
+import { Table, Tag, Space, Button, Tooltip, Layout } from 'antd';
 import {
   ClockCircleOutlined,
   CheckCircleOutlined,
@@ -10,59 +10,49 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import { Select, Input, Checkbox, Popover, Dropdown } from 'antd';
-import ReactMarkdown from 'react-markdown';
+import { API_ENDPOINTS } from './utils/config';
 import Markdown from 'react-markdown';
 import './App.css';
-import Playground from '../components/Playground';
+import Playground from './components/Playground';
 
-const env = window.__ENV__ || {};
-const { BE_URL = '', BE_PORT = '', ENDPOINT = {} } = env;
-// URL Endpoint config
-function buildApiUrl(beUrl = '', bePort = '', path = '') {
-  if (!beUrl || !bePort || !path) {
-    return '';
-  }
-
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${beUrl}:${bePort}${normalizedPath}`;
-}
-
+const { Header } = Layout;
 // Pie Chart Config
-const RADIAN = Math.PI / 180;
-// Hàm vẽ label tùy chỉnh
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+// const RADIAN = Math.PI / 180;
+// // Hàm vẽ label tùy chỉnh
+// const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+//   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+//   const x = cx + radius * Math.cos(-midAngle * RADIAN);
+//   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="white"
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      className="text-[10px] font-bold"
-    >
-      {`${(percent * 100).toFixed(1)}%`}
-    </text>
-  );
-};
+//   return (
+//     <text
+//       x={x}
+//       y={y}
+//       fill="white"
+//       textAnchor={x > cx ? 'start' : 'end'}
+//       dominantBaseline="central"
+//       className="text-[10px] font-bold"
+//     >
+//       {`${(percent * 100).toFixed(1)}%`}
+//     </text>
+//   );
+// };
 
 const COLORS = [
-  '#10b981', // Xanh lá cho 'Unchecked'
-  '#3b82f6', // Xanh dương cho 'Correct'
+  '#10b981', // Xanh lá 'Unchecked'
+  '#3b82f6', // Xanh dương 'Correct'
   '#ef4444',  // Đỏ cho 'Incorrect'
 ];
 
-// Hàm định dạng tên hiển thị cho Lengend Pie Chart
+const STATUS_LABELS = {
+  'correct': 'Đúng',
+  'incorrect': 'Sai',
+  'unchecked': 'Chưa kiểm tra'
+};
+
+// Hàm định dạng tên hiển thị cho Legend Pie Chart
 const renderColorfulLegendText = (value) => {
-  const statusMap = {
-    'correct': 'Đúng',
-    'incorrect': 'Sai',
-    'unchecked': 'Chưa kiểm tra'
-  };
-  return statusMap[value] || value;
+  return STATUS_LABELS[value] || value;
 }
 
 
@@ -191,7 +181,7 @@ export default function App() {
   const [dataSource, setDataSource] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10); // Số bản ghi mỗi trang
+  const [pageSize, setPageSize] = useState(20); // Số bản ghi mỗi trang (Mặc định 20)
   // các State của Righ Side
   const [searchQuery, setSearchQuery] = useState('');
   const [status, setStatus] = useState(''); // Status dùng cho việc tìm kiếm dữ liệu trong db,
@@ -202,16 +192,13 @@ export default function App() {
   useEffect(() => {
     const fetchCountData = async () => {
       try {
-
-        const endpointDataCount = buildApiUrl(BE_URL, BE_PORT, ENDPOINT.GET_DATA_COUNT);
-
-        if (!endpointDataCount) {
+        if (!API_ENDPOINTS.GET_DATA_COUNT) {
           console.warn('Missing ENDPOINT_DATA_COUNT in config');
           return;
         }
-        const respone = await fetch(endpointDataCount, { method: "GET" });
+        const respone = await fetch(API_ENDPOINTS.GET_DATA_COUNT, { method: "GET" });
         if (!respone.ok) {
-          throw new Error(`HTTP ${respone.status} when calling ${endpointDataCount}`);
+          throw new Error(`HTTP ${respone.status} when calling ${API_ENDPOINTS.GET_DATA_COUNT}`);
         }
         const data = await respone.json();
         console.log(data);
@@ -237,12 +224,12 @@ export default function App() {
   const loadTableData = useCallback(async (page = currentPage, limit = pageSize) => {
     setLoading(true);
     try {
-      const endpointDataAll = buildApiUrl(BE_URL, BE_PORT, ENDPOINT.SEARCH);
-      if (!endpointDataAll) {
+
+      if (!API_ENDPOINTS.SEARCH) {
         console.warn('Missing ENDPOINT.GET_DATA_ALL in config');
         return;
       }
-      const requestUrl = new URL(endpointDataAll);
+      const requestUrl = new URL(API_ENDPOINTS.SEARCH);
       if (searchQuery !== "") {
         requestUrl.searchParams.set('query', String(searchQuery));
       }
@@ -280,11 +267,11 @@ export default function App() {
   const filteredColumns = columns.filter(col => visibleColumnKeys.includes(col.key));
 
   return (
-    <div className="bg-[#f8fafc] min-h-screen font-sans">
+    <Layout className="bg-[#f8fafc] min-h-screen font-sans">
       {activePage === 'dashboard' ? (
         <>
           {/* Header Overview */}
-          <header className="bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+          <Header className="bg-white border-b border-gray-100 p-4 flex justify-between items-center shadow-sm sticky">
             <div className="flex items-center gap-2">
               <Dropdown
                 menu={{
@@ -314,23 +301,24 @@ export default function App() {
                 trigger={['click']}
                 placement="bottomLeft"
               >
-                <div className="bg-blue-600 p-1.5 rounded-sm cursor-pointer hover:bg-blue-700 transition-colors shadow-sm">
+                <div className="bg-blue-600 p-1.5 rounded-lg shadow-md cursor-pointer hover:bg-blue-700 transition-colors flex items-center justify-center">
                   <Database size={18} color="white" />
                 </div>
               </Dropdown>
-              <div className="flex flex-col">
-                <h1 className="text-xl font-bold text-gray-800 leading-none">LLM Analytics Overview</h1>
-                <span className="text-[10px] text-gray-400 font-medium uppercase mt-1">Workspace / Analytics</span>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-gray-300 leading-none tracking-tighter uppercase">LLM Analytics Overview</h1>
+                <div className="h-4 w-px bg-gray-200 mx-1"></div>
+                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Workspace / Analytics</span>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-gray-600 text-xs font-medium">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                System Active
+                Analytics Mode
               </div>
               <HelpCircle size={20} className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors" />
             </div>
-          </header>
+          </Header>
 
           <div className="p-4">
             <div className="flex flex-col gap-4">
@@ -352,27 +340,23 @@ export default function App() {
                         <PieChart>
                           <Pie
                             data={dataPie}
+                            cx="50%"
+                            cy="50%"
                             innerRadius={40}
                             outerRadius={100}
                             paddingAngle={5}
                             dataKey="value"
-                            cx="50%"
-                            cy="50%"
                             stroke="none"
                           >
-                            {dataPie.map((entry, i) => (
-                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                            {dataPie.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <ChartTooltip />
-                          <Legend
-                            formatter={renderColorfulLegendText}
-                            verticalAlign="bottom"
-                            align="center"
-                            layout="horizontal"
-                            iconType="circle"
-                            wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                          <ChartTooltip
+                            formatter={(value, name) => [value, STATUS_LABELS[name] || name]}
+                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                           />
+                          <Legend iconType="circle" formatter={renderColorfulLegendText} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -468,6 +452,7 @@ export default function App() {
                     total: totalRecords,       // total_record từ API
                     showSizeChanger: true,
                     pageSizeOptions: ['10', '20', '50'],
+                    defaultPageSize: 20,
                     locale: { items_per_page: '' },
                     onChange: (page, size) => {
                       // Khi người dùng bấm chuyển trang hoặc đổi số lượng bản ghi/trang
@@ -490,6 +475,6 @@ export default function App() {
       ) : (
         <Playground onNavigate={(page) => setActivePage(page)} />
       )}
-    </div>
+    </Layout>
   );
 }

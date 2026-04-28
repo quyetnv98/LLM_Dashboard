@@ -14,14 +14,16 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Đường dẫn tới file SQLite (tương đối với thư mục chạy server, hoặc tuyệt đối)
-DB_PATH = BASE_DIR / "answer_db.db"
-# logger.info(f"Database path: {DB_PATH}")
+# Ưu tiên lấy đường dẫn từ biến môi trường, nếu không có thì dùng mặc định
+DB_PATH = os.getenv("DB_PATH", str(BASE_DIR / "answer_db.db"))
+
 def get_connection():
     """Tạo kết nối tới SQLite database."""
     db_path = os.path.abspath(DB_PATH)
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"Database không tìm thấy tại: {db_path}")
+    
+    # Tạo thư mục cha nếu chưa tồn tại (hữu ích khi dùng Volume)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn

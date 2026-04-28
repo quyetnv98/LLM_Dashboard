@@ -21,9 +21,8 @@ class FetchRequest(BaseModel):
     list_quest: List[str]
     batch_size: int
 
-async def get_response(client: httpx.AsyncClient, question: str, model_name: str):
+async def get_response(client: httpx.AsyncClient, question: str, model_name: str, user_id: str):
     session_id = str(uuid.uuid4())
-    user_id = user_id
     url = "http://172.16.10.73:8097/api/v2/chatbot/chat"
     headers = {
         "Content-Type": "application/json"
@@ -120,7 +119,7 @@ def save_to_db(results: List[dict]):
     conn.commit()
     conn.close()
 
-@router.post("/fetch-question")
+@router.post("/fetch_question")
 async def fetch_question(req: FetchRequest, request: Request):
     """
     Endpoint nhận vào list câu hỏi, chia thành các batch và gọi API chatbot.
@@ -132,6 +131,7 @@ async def fetch_question(req: FetchRequest, request: Request):
     questions = req.list_quest
     batch_size = req.batch_size
     model_name = req.model_name
+    user_id = req.user_id
     
     if not questions:
         raise HTTPException(status_code=400, detail="Danh sách câu hỏi trống.")
@@ -145,8 +145,9 @@ async def fetch_question(req: FetchRequest, request: Request):
         for i in range(0, len(questions), batch_size):
             batch = questions[i:i + batch_size]
             logger.info(f"[{transid}] - Đang xử lý batch {i//batch_size + 1}/{(len(questions)-1)//batch_size + 1} ({len(batch)} câu hỏi)...")
+            batch_start_time = time.time()
             
-            tasks = [get_response(client, q, model_name) for q in batch]
+            tasks = [get_response(client, q, model_name, user_id) for q in batch]
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
             
             valid_results = []
@@ -157,10 +158,15 @@ async def fetch_question(req: FetchRequest, request: Request):
                     logger.error(f"[{transid}] - Lỗi trong batch: {r}")
             
             batch_no = i // batch_size + 1
+            batch_end_time = time.time()
+            batch_duration = batch_end_time - batch_start_time
             results_by_batch.append({
                 "batch_no": batch_no,
                 "batch_size": len(batch),
                 "processed": len(valid_results),
+                "batch_start_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(batch_start_time)),
+                "batch_end_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(batch_end_time)),
+                "batch_time_executed": f"{batch_duration:.2f}s",
                 "results": valid_results
             })
             total_processed += len(valid_results)
