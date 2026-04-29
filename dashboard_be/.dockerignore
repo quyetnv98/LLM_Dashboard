@@ -9,3 +9,4 @@ ENV/
 *.sqlite3
 .git/
 .gitignore
+routes/__pycache__/

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Card, Button, Typography, Space, Upload, InputNumber, Input, Tag, Divider, message, List, Skeleton, Row, Col, Dropdown, Select } from 'antd';
 import { UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined } from '@ant-design/icons';
-import { Database, Play, LayoutPanelLeft, HelpCircle, Clock, PlayIcon } from 'lucide-react';
+import { Database, Play, LayoutPanelLeft, HelpCircle, Clock, PlayIcon, Tag as TagIcon } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/config';
 
 const { Header, Sider, Content } = Layout;
@@ -20,6 +20,7 @@ export default function Playground({ onNavigate }) {
     const [selectedModel, setSelectedModel] = useState('gemma-4-2b-a4b-it-4bit');
     const [batchsize, setBatchsize] = useState(1); // Số luồng test (1-5)
     const [userId, setUserId] = useState('user_test_01'); // User ID cho session test
+    // eslint-disable-next-line no-unused-vars
     const [batchMetadata, setBatchMetadata] = useState([]); // Lưu thông tin metadata của từng batch
     const [totalExecutionTime, setTotalExecutionTime] = useState(null); // Lưu tổng thời gian xử lý thực tế
 
@@ -248,15 +249,15 @@ export default function Playground({ onNavigate }) {
                                 },
                                 {
                                     key: 'playground',
-                                    label: 'LLM Playground',
+                                    label: 'LLM Prompt Response',
                                     icon: <Play size={16} />,
                                     disabled: true,
                                 },
                                 {
-                                    key: 'compare',
-                                    label: 'Compare Model',
-                                    icon: <LayoutPanelLeft size={16} />,
-                                    onClick: () => console.log('Chuyển sang Compare Model'),
+                                    key: 'tagging',
+                                    label: 'Tagging Dataset',
+                                    icon: <TagIcon size={16} />,
+                                    onClick: () => onNavigate('tagging'),
                                 },
                             ],
                         }}
@@ -268,16 +269,16 @@ export default function Playground({ onNavigate }) {
                         </div>
                     </Dropdown>
                     <div className="flex items-center gap-2">
-                        <h1 className="text-lg font-bold text-gray-400 leading-none tracking-tighter">LLM PROMPT</h1>
+                        <h1 className="text-lg font-bold text-gray-400 leading-none tracking-tighter">LLM PROMPT RESPONSE</h1>
                         <div className="h-4 w-px bg-gray-200 mx-1"></div>
-                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Workspace / Playground</span>
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Workspace / Prompt Response</span>
                     </div>
 
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-gray-600 text-xs font-medium">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        Playground Mode
+                        LLM Response Mode
                     </div>
                     <HelpCircle size={20} className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors" />
                 </div>

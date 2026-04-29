@@ -18,16 +18,16 @@ router = APIRouter(prefix="/api", tags=["Search"])
 
 def search_questions(
     query: str = "",
-    is_checked: int = None,
-    page_size: int = 50,
+    is_checked: int = None, #Nếu không có lấy toàn bộ các trạng thái
+    page_size: int = 50, #nhận từ FE mặc định 20
     page_index: int = 1  # Nhận page_index từ FE
 ):
     """
     Tham số đầu vào:
-    - query: Câu hỏi tìm kiếm
-    - is_checked: Trạng thái kiểm tra
-    - page_size: Số bản ghi mỗi trang
-    - page_index: Chỉ số trang
+    - query: Câu hỏi tìm kiếm, nếu không có lấy tất
+    - is_checked: Trạng thái kiểm tra nếu không có lấy toàn bộ
+    - page_size: Số bản ghi mỗi trangtất, mặc định 50 trong swagger, mặc định FE truyền là 20
+    - page_index: Chỉ số trang 
         
     Trả về:
     - Dữ liệu tìm kiếm
@@ -57,7 +57,12 @@ def search_questions(
             params.append(is_checked)
 
         where_clause = f" WHERE {' AND '.join(filters)}" if filters else ""
-
+        logger.info({
+            "query": query,
+            "is_checked" : is_checked,
+            "page_size": page_size,
+            "page_index": page_index
+        })
         # 1. Lấy tổng số bản ghi để tính total_page
         count_query = f"SELECT COUNT(*) as count FROM answer{where_clause}"
         cursor.execute(count_query, tuple(params))
@@ -67,6 +72,7 @@ def search_questions(
 
         # 2. Lấy dữ liệu theo phân trang
         select_query = f"SELECT * FROM answer{where_clause} LIMIT ? OFFSET ?"
+        logger.info(select_query)
         cursor.execute(select_query, tuple(params + [page_size, offset]))
 
         rows = cursor.fetchall()

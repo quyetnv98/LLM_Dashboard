@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, } from 'recharts'; import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, } from 'recharts'; import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft, Tag as TagIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Space, Button, Tooltip, Layout } from 'antd';
 import {
@@ -14,29 +14,11 @@ import { API_ENDPOINTS } from './utils/config';
 import Markdown from 'react-markdown';
 import './App.css';
 import Playground from './components/Playground';
+import CompareRespone from './components/CompareRespone';
+import TaggingData from './components/TaggingData';
+
 
 const { Header } = Layout;
-// Pie Chart Config
-// const RADIAN = Math.PI / 180;
-// // Hàm vẽ label tùy chỉnh
-// const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-//   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-//   const x = cx + radius * Math.cos(-midAngle * RADIAN);
-//   const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-//   return (
-//     <text
-//       x={x}
-//       y={y}
-//       fill="white"
-//       textAnchor={x > cx ? 'start' : 'end'}
-//       dominantBaseline="central"
-//       className="text-[10px] font-bold"
-//     >
-//       {`${(percent * 100).toFixed(1)}%`}
-//     </text>
-//   );
-// };
 
 const COLORS = [
   '#10b981', // Xanh lá 'Unchecked'
@@ -57,9 +39,12 @@ const renderColorfulLegendText = (value) => {
 
 
 // Top Card Config
-const MetricCard = ({ icon, title, value }) => (
-  <div className="bg-white p-4 rounded-md border border-gray-200 flex items-center gap-4 shadow-sm">
-    <div className="p-3 bg-blue-50 text-blue-500 rounded-md">{icon}</div>
+const MetricCard = ({ icon, title, value, onClick }) => (
+  <div
+    className={`bg-white p-4 rounded-md border border-gray-200 flex items-center gap-4 shadow-sm ${onClick ? 'cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group' : ''}`}
+    onClick={onClick}
+  >
+    <div className={`p-3 rounded-md transition-colors ${onClick ? 'bg-blue-50 text-blue-500 group-hover:bg-blue-500 group-hover:text-white' : 'bg-blue-50 text-blue-500'}`}>{icon}</div>
     <div>
       <div className="text-xs text-gray-500 uppercase font-semibold">{title}</div>
       <div className="text-2xl font-bold text-gray-800">{value}</div>
@@ -173,6 +158,7 @@ const columns = [
 
 export default function App() {
   const [dataPie, setDataPie] = useState([]);
+  const [totalAllRecords, setTotalAllRecords] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
   const [isCCheckTrue, setIsCCheckTrue] = useState(0);
   const [isCCheckFalse, setIsCCheckFalse] = useState(0);
@@ -187,6 +173,8 @@ export default function App() {
   const [status, setStatus] = useState(''); // Status dùng cho việc tìm kiếm dữ liệu trong db,
   const [activePage, setActivePage] = useState('dashboard');
   const [visibleColumnKeys, setVisibleColumnKeys] = useState(columns.map(c => c.key));
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   // 1. Lấy dữ liệu thống kê từ DB
   useEffect(() => {
@@ -246,7 +234,7 @@ export default function App() {
       const data = await respone.json();
       console.log(data);
       setDataSource(Array.isArray(data.data) ? data.data : []);
-      setTotalRecords(Number(data.total_records) || 0);
+      setTotalAllRecords(Number(data.total_records) || 0);
       // Keep FE pagination state from the user's action to avoid page reset.
       setCurrentPage(page);
       setPageSize(limit);
@@ -265,6 +253,20 @@ export default function App() {
   }, [loadTableData]);
 
   const filteredColumns = columns.filter(col => visibleColumnKeys.includes(col.key));
+
+  // Cấu hình chọn dòng
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (keys, rows) => {
+      if (keys.length <= 2) {
+        setSelectedRowKeys(keys);
+        setSelectedRows(rows);
+      }
+    },
+    getCheckboxProps: (record) => ({
+      disabled: selectedRowKeys.length >= 2 && !selectedRowKeys.includes(record.session_id),
+    }),
+  };
 
   return (
     <Layout className="bg-[#f8fafc] min-h-screen font-sans">
@@ -285,16 +287,17 @@ export default function App() {
                     },
                     {
                       key: 'playground',
-                      label: 'LLM Playground',
+                      label: 'LLM Prompt Response',
                       icon: <Play size={16} />,
                       onClick: () => setActivePage('playground'),
                       disabled: activePage === 'playground',
                     },
                     {
-                      key: 'compare',
-                      label: 'Compare Model',
-                      icon: <LayoutPanelLeft size={16} />,
-                      onClick: () => console.log('Chuyển sang Compare Model'),
+                      key: 'tagging',
+                      label: 'Tagging Dataset',
+                      icon: <TagIcon size={16} />,
+                      onClick: () => setActivePage('tagging'),
+                      disabled: activePage === 'tagging',
                     },
                   ],
                 }}
@@ -330,7 +333,12 @@ export default function App() {
                     <MetricCard icon={<Database size={24} />} title="Tổng số bản ghi" value={totalRecords} />
                     <MetricCard icon={<VerifiedIcon size={24} />} title="Số lượng đúng" value={isCCheckTrue} />
                     <MetricCard icon={<LucideFileX size={24} />} title="Số lượng sai" value={isCCheckFalse} />
-                    <MetricCard icon={<Clock size={24} />} title="Số lượng chưa đánh giá" value={isCCheckUnchecked} />
+                    <MetricCard
+                      icon={<Clock size={24} />}
+                      title="Số lượng chưa đánh giá"
+                      value={isCCheckUnchecked}
+                      onClick={() => setActivePage('tagging')}
+                    />
                   </div>
 
                   {/* Right Side: Pie Chart */}
@@ -434,6 +442,37 @@ export default function App() {
               </div>
             </div>
 
+            {/* So sánh Bar - Hiển thị khi có chọn */}
+            {selectedRows.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    {selectedRows.map((_, i) => (
+                      <div key={i} className="w-8 h-8 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-blue-800">
+                    Đã chọn {selectedRows.length}/2 câu hỏi để so sánh
+                  </span>
+                </div>
+                <Space>
+                  <Button size="small" variant="ghost" onClick={() => { setSelectedRowKeys([]); setSelectedRows([]); }}>Hủy</Button>
+                  <Button
+                    type="primary"
+                    size="middle"
+                    disabled={selectedRows.length !== 2}
+                    onClick={() => setActivePage('compare')}
+                    icon={<LayoutPanelLeft size={16} />}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    So sánh
+                  </Button>
+                </Space>
+              </div>
+            )}
+
             {/* Table results */}
             <div className="mb-4 rounded border border-gray-200 bg-white p-2 shadow-sm">
               <div className="antd-table-container">
@@ -445,11 +484,12 @@ export default function App() {
                     index % 2 === 0 ? '!bg-[#f4f7f9]' : '!bg-white'
                   }
                   className="custom-ant-table"
+                  rowSelection={rowSelection}
                   rowKey="session_id"
                   pagination={{
                     current: currentPage,      // page_index từ API
                     pageSize: pageSize,        // số lượng bản ghi mỗi trang
-                    total: totalRecords,       // total_record từ API
+                    total: totalAllRecords,       // total_record từ API
                     showSizeChanger: true,
                     pageSizeOptions: ['10', '20', '50'],
                     defaultPageSize: 20,
@@ -458,11 +498,10 @@ export default function App() {
                       // Khi người dùng bấm chuyển trang hoặc đổi số lượng bản ghi/trang
                       const nextSize = size || pageSize;
                       setCurrentPage(page);
-                      console.log(currentPage);
                       setPageSize(nextSize);
                       loadTableData(page, nextSize);
                     },
-                    showTotal: (total) => `Tổng cộng ${total} bản ghi`,
+                    showTotal: (total) => `Tổng cộng ${total} dòng dữ liệu`,
                   }}
                   scroll={{ x: 1000 }}
                   bordered
@@ -472,8 +511,15 @@ export default function App() {
             </div>
           </div>
         </>
-      ) : (
+      ) : activePage === 'playground' ? (
         <Playground onNavigate={(page) => setActivePage(page)} />
+      ) : activePage === 'tagging' ? (
+        <TaggingData onNavigate={(page) => setActivePage(page)} />
+      ) : (
+        <CompareRespone
+          data={selectedRows}
+          onNavigate={(page) => setActivePage(page)}
+        />
       )}
     </Layout>
   );
