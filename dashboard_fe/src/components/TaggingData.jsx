@@ -1,7 +1,6 @@
-//  eslint-disable-next-line no-unused-vars
 import React, { useEffect, useState, useCallback } from 'react';
-import {Table, Tooltip, Layout, Checkbox, Button, Typography, Space, Upload, InputNumber, Input, Tag, Divider, List, Skeleton, Row, Col, Dropdown, Select } from 'antd';
-import { Database, Play, LayoutPanelLeft, HelpCircle, Clock, PlayIcon, Tag as TagIcon } from 'lucide-react';
+import { Table, Tooltip, Layout,Checkbox, Button, Space, Input, Tag, Dropdown, Select } from 'antd';
+import { Database, Play, HelpCircle, Tag as TagIcon } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/config';
 import Markdown from 'react-markdown';
 import { ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined  } from '@ant-design/icons';
@@ -12,10 +11,6 @@ const TaggingData = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-//   //  eslint-disable-next-line no-unused-vars
-//   const [searchQuery, setSearchQuery] = useState('');
-//   //  eslint-disable-next-line no-unused-vars
-//   const [status, setStatus] = useState('0');
   const [totalUncheckedRecords, setTotalUncheckedRecords] = useState(0);
   const [dataUnchecked, setDataUnchecked] = useState([]);
   const [modifiedData, setModifiedData] = useState({}); // Lưu các session_id và dữ liệu đã thay đổi
@@ -165,7 +160,12 @@ const TaggingData = ({ onNavigate }) => {
       width: 400,
       render: (text) => (
         <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-          <Markdown>{text}</Markdown>
+          <Markdown
+            components={{
+              a: ({ node, ...props }) => (
+                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+              )
+            }}>{text}</Markdown>
         </div>
       ),
     },
@@ -227,7 +227,7 @@ const TaggingData = ({ onNavigate }) => {
           return (
             <Input
               value={text}
-              bordered={false}
+              variant="borderless"
             //   placeholder="Lý do sai..."
               onChange={(e) => handleNoteUpdate(record.session_id, e.target.value)}
               size="small"

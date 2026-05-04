@@ -11,7 +11,8 @@ from routes.config import get_connection, logger
 from typing import List, Optional
 from fastapi import Request, HTTPException, APIRouter
 from pydantic import BaseModel
-
+from fastapi.responses import StreamingResponse
+import json
 
 router = APIRouter(prefix="/api/process", tags=["Process"])
 
@@ -139,61 +140,56 @@ async def fetch_question(req: FetchRequest, request: Request):
     """
     transid = request.headers.get("transId", datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     logger.info(f"[{transid}] - Bắt đầu xử lý {len(req.list_quest)} câu hỏi cho model {req.model_name} với batch_size {req.batch_size}")
-    questions = req.list_quest
-    batch_size = req.batch_size
-    model_name = req.model_name
-    user_id = req.user_id
     
-    if not questions:
+    if not req.list_quest:
         raise HTTPException(status_code=400, detail="Danh sách câu hỏi trống.")
-    if batch_size <= 0:
+    if req.batch_size <= 0:
         raise HTTPException(status_code=400, detail="batch_size phải lớn hơn 0.")
 
-    total_processed = 0
-    results_by_batch = []
-    
-    async with httpx.AsyncClient() as client:
-        for i in range(0, len(questions), batch_size):
-            batch = questions[i:i + batch_size]
-            logger.info(f"[{transid}] - Đang xử lý batch {i//batch_size + 1}/{(len(questions)-1)//batch_size + 1} ({len(batch)} câu hỏi)...")
-            batch_start_time = time.time()
-            
-            tasks = [get_response(client, q, model_name, user_id) for q in batch]
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            valid_results = []
-            for r in batch_results:
-                if isinstance(r, dict):
-                    valid_results.append(r)
-                else:
-                    logger.error(f"[{transid}] - Lỗi trong batch: {r}")
-            
-            batch_no = i // batch_size + 1
-            batch_end_time = time.time()
-            batch_duration = batch_end_time - batch_start_time
-            results_by_batch.append({
-                "batch_no": batch_no,
-                "batch_size": len(batch),
-                "processed": len(valid_results),
-                "batch_start_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(batch_start_time)),
-                "batch_end_time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(batch_end_time)),
-                "batch_time_executed": f"{batch_duration:.2f}s",
-                "results": valid_results
-            })
-            total_processed += len(valid_results)
-            
-            # Lưu batch vào db luôn
-            save_to_db(valid_results)
-            
-            if i + batch_size < len(questions):
-                await asyncio.sleep(1) # Chờ 1 chút giữa các batch
+    async def event_generator():
+        questions = req.list_quest
+        batch_size = req.batch_size
+        model_name = req.model_name
+        user_id = req.user_id
+        
+        total_batches = (len(questions) - 1) // batch_size + 1
+        
+        async with httpx.AsyncClient() as client:
+            for i in range(0, len(questions), batch_size):
+                batch = questions[i:i + batch_size]
+                batch_no = i // batch_size + 1
+                logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches} ({len(batch)} câu hỏi)...")
                 
-    logger.info(f"[{transid}] - Đã hoàn thành xử lý {total_processed} câu hỏi.")
-    
-    return {
-        "transId": transid,
-        "message": "Xử lý thành công",
-        "total_batch": len(results_by_batch),
-        "total_processed": total_processed,
-        "results_by_batch": results_by_batch
-    }
+                batch_start_time = time.time()
+                tasks = [get_response(client, q, model_name, user_id) for q in batch]
+                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                valid_results = []
+                for r in batch_results:
+                    if isinstance(r, dict):
+                        valid_results.append(r)
+                    else:
+                        logger.error(f"[{transid}] - Lỗi trong batch: {r}")
+                
+                save_to_db(valid_results)
+                
+                batch_end_time = time.time()
+                batch_duration = batch_end_time - batch_start_time
+                
+                chunk_data = {
+                    "batch_no": batch_no,
+                    "total_batch": total_batches,
+                    "batch_size": len(batch),
+                    "processed": len(valid_results),
+                    "batch_time_executed": f"{batch_duration:.2f}s",
+                    "results": valid_results
+                }
+                
+                yield json.dumps(chunk_data) + "\n"
+                
+                if i + batch_size < len(questions):
+                    await asyncio.sleep(0.1)
+
+        logger.info(f"[{transid}] - Đã hoàn thành xử lý stream.")
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")

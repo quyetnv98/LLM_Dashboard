@@ -19,6 +19,8 @@ router = APIRouter(prefix="/api/process", tags=["Search"])
 def search_questions(
     query: str = "",
     is_checked: int = None, #Nếu không có lấy toàn bộ các trạng thái
+    is_user: str = None,  # Nếu không có lấy toàn bộ
+    is_model: str = None, #Nếu không có lấy toàn bộ
     page_size: int = 50, #nhận từ FE mặc định 20
     page_index: int = 1  # Nhận page_index từ FE
 ):
@@ -26,6 +28,8 @@ def search_questions(
     Tham số đầu vào:
     - query: Câu hỏi tìm kiếm, nếu không có lấy tất
     - is_checked: Trạng thái kiểm tra nếu không có lấy toàn bộ
+    - is_user: User ID nếu không có lấy toàn bộ
+    - is_model: Model name nếu không có lấy toàn bộ
     - page_size: Số bản ghi mỗi trangtất, mặc định 50 trong swagger, mặc định FE truyền là 20
     - page_index: Chỉ số trang 
         
@@ -51,14 +55,23 @@ def search_questions(
         if query:
             filters.append("question LIKE ?")
             params.append(f"%{query}%")
+        if is_user:
+            filters.append("user_id = ?")
+            params.append(is_user)
+        if is_model:
+            filters.append("model_name = ?")
+            params.append(is_model)
 
         if is_checked is not None:
             filters.append("is_checked = ?")
             params.append(is_checked)
 
+
         where_clause = f" WHERE {' AND '.join(filters)}" if filters else ""
         logger.info({
             "query": query,
+            "is_user": is_user,
+            "is_model": is_model,
             "is_checked" : is_checked,
             "page_size": page_size,
             "page_index": page_index

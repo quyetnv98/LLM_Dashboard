@@ -6,12 +6,12 @@ from fastapi import APIRouter, HTTPException
 
 
 
-router = APIRouter(prefix="/api/get_from_db", tags=["Static"])
+router = APIRouter(prefix="/api/process", tags=["Static"])
 
 
 
-@router.get("/stats")
-def get_stats():
+@router.get("/statics")
+def get_statics():
     """
     Thống kê số lượng câu hỏi theo trạng thái kiểm tra:
     - is_checked = 0 : Chưa được check

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Card, Button, Typography, Space, Upload, InputNumber, Input, Tag, Divider, message, List, Skeleton, Row, Col, Dropdown, Select } from 'antd';
-import { UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined } from '@ant-design/icons';
+import { UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined, PauseOutlined } from '@ant-design/icons';
 import { Database, Play, LayoutPanelLeft, HelpCircle, Clock, PlayIcon, Tag as TagIcon } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/config';
 import Markdown from 'react-markdown';
@@ -23,51 +23,71 @@ export default function Playground({ onNavigate }) {
     // eslint-disable-next-line no-unused-vars
     const [batchMetadata, setBatchMetadata] = useState([]); // Lưu thông tin metadata của từng batch
     const [totalExecutionTime, setTotalExecutionTime] = useState(null); // Lưu tổng thời gian xử lý thực tế
+    const abortControllerRef = React.useRef(null);
 
     // Xử lý gọi API thực tế cho một nhóm câu hỏi
     const processBatchAPI = async (itemsToProcess) => {
-        const startTime = Date.now();
-        const ids = itemsToProcess.map(item => item.id);
+    const startTime = Date.now();
+    const ids = itemsToProcess.map(item => item.id);
 
-        // 1. Bật loading cho các item đang được xử lý
-        setTestItems(prev => prev.map(item =>
-            ids.includes(item.id) ? { ...item, loading: true, answer: '' } : item
-        ));
+    // 1. Bật loading cho các item đang được xử lý
+    setTestItems(prev => prev.map(item =>
+        ids.includes(item.id) ? { ...item, loading: true, answer: '' } : item
+    ));
 
-        try {
-            const payload = {
-                "user_id": userId,
-                "model_name": selectedModel,
-                "batch_size": batchsize,
-                "list_quest": itemsToProcess.map(item => item.question)
-            };
-            const response = await fetch(API_ENDPOINTS.FETCH_QUESTION, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+    try {
+        abortControllerRef.current = new AbortController();
+        const payload = {
+            "user_id": userId,
+            "model_name": selectedModel,
+            "batch_size": batchsize,
+            "list_quest": itemsToProcess.map(item => item.question)
+        };
 
-            if (!response.ok) throw new Error('API Error');
+        const response = await fetch(API_ENDPOINTS.FETCH_QUESTION, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: abortControllerRef.current.signal
+        });
 
-            const data = await response.json();
+        if (!response.ok) throw new Error('API Error');
 
+        // --- XỬ LÝ STREAM TẠI ĐÂY ---
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedData = '';
+        let questionPointer = 0; // Để biết đang ở câu hỏi thứ mấy
 
-            const endTime = Date.now();
-            const calcTotalTime = ((endTime - startTime) / 1000).toFixed(2);
-            setTotalExecutionTime(calcTotalTime);
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
 
-            // 2. CẬP NHẬT LOGIC MAPPING THEO BATCH
-            console.log("Raw Response from API:", data);
+            // Decode chunk nhận được và cộng dồn
+            accumulatedData += decoder.decode(value, { stream: true });
 
-            setTestItems(prev => {
-                const newItems = [...prev];
-                let questionPointer = 0;
+            // Tách dữ liệu theo dòng (mỗi dòng là một JSON object của 1 batch)
+            const lines = accumulatedData.split('\n');
+            
+            // Dòng cuối cùng có thể chưa hoàn chỉnh, giữ lại cho lần đọc sau
+            accumulatedData = lines.pop();
 
-                if (data.results_by_batch && Array.isArray(data.results_by_batch)) {
-                    data.results_by_batch.forEach((batchRes) => {
-                        if (batchRes.results && Array.isArray(batchRes.results)) {
-                            batchRes.results.forEach((resObj) => {
-                                const targetItem = itemsToProcess[questionPointer];
+            for (const line of lines) {
+                if (!line.trim()) continue;
+
+                try {
+                    const batchRes = JSON.parse(line);
+                    console.log("Batch stream:", batchRes);
+
+                    if (batchRes.results && Array.isArray(batchRes.results)) {
+                        const currentStartIdx = questionPointer; // Cố định vị trí bắt đầu của batch này
+                        const currentBatchSize = batchRes.results.length;
+
+                        setTestItems(prev => {
+                            const newItems = [...prev];
+                            batchRes.results.forEach((resObj, idx) => {
+                                // Sử dụng currentStartIdx đã cố định cho batch này
+                                const targetItem = itemsToProcess[currentStartIdx + idx];
                                 if (targetItem) {
                                     const realIndex = newItems.findIndex(it => it.id === targetItem.id);
                                     if (realIndex !== -1) {
@@ -75,46 +95,60 @@ export default function Playground({ onNavigate }) {
                                             ...newItems[realIndex],
                                             loading: false,
                                             answer: resObj.answer || "Không có phản hồi.",
-                                            time_executed: resObj.time_executed ? String(resObj.time_executed).replace('s', '') : calcTotalTime
+                                            time_executed: resObj.time_executed ? String(resObj.time_executed).replace('s', '') : "0"
                                         };
                                     }
                                 }
-                                questionPointer++;
                             });
-                        }
-                    });
-                } else if (Array.isArray(data)) {
-                    // Xử lý nếu API trả về mảng phẳng trực tiếp
-                    data.forEach((resObj, idx) => {
-                        const targetItem = itemsToProcess[idx];
-                        if (targetItem) {
-                            const realIndex = newItems.findIndex(it => it.id === targetItem.id);
-                            if (realIndex !== -1) {
-                                newItems[realIndex] = {
-                                    ...newItems[realIndex],
-                                    loading: false,
-                                    answer: typeof resObj === 'string' ? resObj : (resObj.answer || "Không có phản hồi."),
-                                    time_executed: resObj.time_executed ? String(resObj.time_executed).replace('s', '') : calcTotalTime
-                                };
+                            return newItems;
+                        });
+
+                        // CẬP NHẬT METADATA CỦA BATCH
+                        setBatchMetadata(prev => {
+                            const newMeta = [...prev];
+                            const existingIdx = newMeta.findIndex(m => m.batch_no === batchRes.batch_no);
+                            if (existingIdx !== -1) {
+                                newMeta[existingIdx] = batchRes;
+                            } else {
+                                newMeta.push(batchRes);
                             }
-                        }
-                    });
+                            return newMeta;
+                        });
+                        
+                        // Tăng pointer cho batch tiếp theo ngay sau khi xử lý xong dòng này
+                        questionPointer += currentBatchSize;
+                    }
+                } catch (e) {
+                    console.error("Lỗi parse JSON chunk:", e);
                 }
+            }
+        }
 
-                // Cuối cùng: Đảm bảo tắt loading cho tất cả các câu hỏi đã gửi đi
-                const processedIds = itemsToProcess.map(it => it.id);
-                return newItems.map(item =>
-                    processedIds.includes(item.id) && item.loading ? { ...item, loading: false } : item
-                );
-            });
+        const endTime = Date.now();
+        const calcTotalTime = ((endTime - startTime) / 1000).toFixed(2);
+        setTotalExecutionTime(calcTotalTime);
 
-            return true;
-        } catch (error) {
-            console.error('Error processing batch:', error);
-            setTestItems(prev => prev.map(item =>
-                ids.includes(item.id) ? { ...item, loading: false, answer: 'Lỗi kết nối API.' } : item
-            ));
-            return false;
+        return true;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Fetch aborted');
+            return 'aborted';
+        }
+        console.error('Error processing stream:', error);
+        setTestItems(prev => prev.map(item =>
+            ids.includes(item.id) ? { ...item, loading: false, answer: 'Lỗi kết nối API.' } : item
+        ));
+        return false;
+    }
+};
+
+
+    // G. Xử lý Tạm dừng
+    const handlePause = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            setGlobalLoading(false);
+            message.info("Đã tạm dừng quá trình xử lý.");
         }
     };
 
@@ -179,32 +213,38 @@ export default function Playground({ onNavigate }) {
 
     // F. Xử lý chạy TẤT CẢ các câu hỏi (Gửi một lần duy nhất)
     const runAllTests = async () => {
-        const questionsToRun = testItems.filter(item => item.question.trim() !== '');
+        // Chỉ lấy những câu hỏi có nội dung VÀ chưa có câu trả lời (để hỗ trợ Resume)
+        const questionsToRun = testItems.filter(item => item.question.trim() !== '' && !item.answer);
+        
         if (questionsToRun.length === 0) {
-            message.warning("Vui lòng nhập nội dung câu hỏi trước khi chạy.");
+            const hasEmptyAnswers = testItems.some(item => item.question.trim() !== '' && !item.answer);
+            if (!hasEmptyAnswers) {
+                message.info("Tất cả câu hỏi đã có kết quả.");
+            } else {
+                message.warning("Vui lòng nhập nội dung câu hỏi trước khi chạy.");
+            }
             return;
         }
 
         const ids = questionsToRun.map(item => item.id);
-        // const startTime = Date.now();
-
-        // 1. Bật loading cho toàn bộ các ô câu hỏi
         setGlobalLoading(true);
+        // setBatchMetadata([]); // Không reset metadata để giữ thông tin các batch đã chạy trước đó
+        
         setTestItems(prev => prev.map(item =>
             ids.includes(item.id) ? { ...item, loading: true, answer: '' } : item
         ));
 
-        message.loading({ content: `Đang gửi ${questionsToRun.length} câu hỏi tới Server...`, key: 'runAll' });
+        message.loading({ content: `Đang xử lý ${questionsToRun.length} câu hỏi còn lại...`, key: 'runAll' });
 
         try {
-            message.loading({ content: `Đang gửi ${questionsToRun.length} câu hỏi tới Server...`, key: 'runAll' });
+            const result = await processBatchAPI(questionsToRun);
 
-            const results = await processBatchAPI(questionsToRun);
-
-            if (results) {
-                message.success({ content: "Đã nhận kết quả cho toàn bộ câu hỏi!", key: 'runAll', duration: 3 });
+            if (result === 'aborted') {
+                // Không làm gì thêm vì đã xử lý trong handlePause
+            } else if (result) {
+                message.success({ content: "Đã hoàn thành toàn bộ câu hỏi!", key: 'runAll', duration: 3 });
             } else {
-                message.error({ content: "Không nhận được kết quả.", key: 'runAll' });
+                message.error({ content: "Có lỗi xảy ra trong quá trình xử lý.", key: 'runAll' });
             }
         } catch (error) {
             console.error('Error processing all tests:', error);
@@ -217,6 +257,15 @@ export default function Playground({ onNavigate }) {
     // E. Xử lý xóa ô test
     const handleDeleteItem = (id) => {
         setTestItems(prev => prev.filter(item => item.id !== id));
+    };
+
+    const handleBatchSizeChange = (value) => {
+        // Nếu người dùng xóa trắng (null) hoặc nhập số quá lớn/nhỏ
+        if (value === null || value === undefined) return;
+        
+        // Ép giá trị nằm trong khoảng an toàn (ví dụ 1 đến 50)
+        const safeValue = Math.max(1, Math.min(50, value));
+        setBatchsize(safeValue);
     };
 
     return (
@@ -313,7 +362,7 @@ export default function Playground({ onNavigate }) {
                             <Card size="small" variant={false} className="bg-white rounded-lg shadow-sm border border-gray-100">
                                 <Space orientation="vertical" className="w-full">
                                     <Text type="secondary" className="text-xs">Số luồng (Threads)</Text>
-                                    <Select
+                                    {/* <Select
                                         value={batchsize}
                                         onChange={setBatchsize}
                                         className="w-full rounded-md"
@@ -324,6 +373,14 @@ export default function Playground({ onNavigate }) {
                                             { value: 4, label: '4' },
                                             { value: 5, label: '5 (Max)' },
                                         ]}
+                                    /> */}
+                                    <InputNumber
+                                        min={1}
+                                        // max={50}
+                                        value={batchsize}
+                                        onChange={handleBatchSizeChange}
+                                        style={{ width: '100%' }} 
+                                        className="rounded-md"
                                     />
                                 </Space>
                             </Card>
@@ -363,20 +420,34 @@ export default function Playground({ onNavigate }) {
                         <Divider className="m-0 border-gray-100" />
 
                         <div className="flex flex-col gap-2">
-                            <Button
-                                type="primary"
-                                icon={<SendOutlined />}
-                                onClick={runAllTests}
-                                loading={globalLoading}
-                                className="w-full h-10 rounded-md shadow-md font-bold"
-                            >
-                                CHẠY TẤT CẢ (RUN ALL)
-                            </Button>
+                            {globalLoading ? (
+                                <Button
+                                    type="primary"
+                                    danger
+                                    icon={<PauseOutlined />}
+                                    onClick={handlePause}
+                                    className="w-full h-10 rounded-md shadow-md font-bold animate-pulse"
+                                >
+                                    TẠM DỪNG (PAUSE)
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="primary"
+                                    icon={<SendOutlined />}
+                                    onClick={runAllTests}
+                                    className="w-full h-10 rounded-md shadow-md font-bold"
+                                >
+                                    {testItems.some(it => it.answer) ? 'TIẾP TỤC (RESUME)' : 'CHẠY TẤT CẢ (RUN ALL)'}
+                                </Button>
+                            )}
                             <Button
                                 type="primary"
                                 danger
                                 icon={<DeleteOutlined />}
-                                onClick={() => setTestItems([])}
+                                onClick={() => {
+                                    setTestItems([]);
+                                    setBatchMetadata([]);
+                                }}
                                 className="w-full rounded-md opacity-70 hover:opacity-100"
                                 disabled={globalLoading}
                             >
@@ -391,7 +462,7 @@ export default function Playground({ onNavigate }) {
                 <Content className="p-8 overflow-y-auto">
                     <div className="flex justify-between items-end mb-8">
                         <div>
-                            <Text strong className="text-2xl text-gray-800 block">LLM Playground Arena</Text>
+                            <Text strong className="text-2xl text-gray-800 block">LLM Arena</Text>
                             <Text type="secondary" className="text-sm">Tính thời gian gọi và trả lời</Text>
                         </div>
                         <div className="flex items-center gap-3">
@@ -425,7 +496,12 @@ export default function Playground({ onNavigate }) {
                                         <div className="flex items-center gap-2 px-4 py-1 bg-white border border-gray-100 rounded-full shadow-sm">
                                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                             <Text strong className="text-[10px] text-gray-400 uppercase tracking-widest">
-                                                Batch #{batchIndex + 1} ({batch.length} câu hỏi)
+                                                Batch #{batchIndex + 1}
+                                                {/* {currentBatchMeta && (
+                                                    <span className="ml-2 text-blue-500 font-bold bg-blue-50 px-2 py-0.5 rounded">
+                                                        {currentBatchMeta.batch_time_executed}
+                                                    </span>
+                                                )} */}
                                             </Text>
                                         </div>
                                         <div className="h-[px] flex-1 bg-gray-200"></div>
@@ -479,7 +555,13 @@ export default function Playground({ onNavigate }) {
                                                             </div>
                                                             <Skeleton loading={item.loading} active>
                                                                 <div className="max-h-[220px] min-h-[140px] overflow-y-auto text-sm text-gray-700 leading-relaxed font-sans bg-[#f8fafc] p-3 rounded-lg border border-slate-100">
-                                                                    {item.answer ? <Markdown>{item.answer}</Markdown> : <Text type="secondary" italic className="text-xs">Chưa có kết quả.</Text>}
+                                                                    {item.answer ? <Markdown
+                                                                        components={{
+                                                                            a: ({ node, ...props }) => (
+                                                                                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                                                                            )
+                                                                        }}
+                                                                    >{item.answer}</Markdown> : <Text type="secondary" italic className="text-xs">Chưa có kết quả.</Text>}
                                                                 </div>
                                                             </Skeleton>
                                                         </Col>

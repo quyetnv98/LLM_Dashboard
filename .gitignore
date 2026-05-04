@@ -5,3 +5,5 @@ dashboard_fe/node_modules
 dashboard_fe/dist
 dashboard_fe/.env   
 dashboard_fe/Dockerfile
+dashboard_fe/public/config.yaml.bak
+dashboard_be/check_schema.py

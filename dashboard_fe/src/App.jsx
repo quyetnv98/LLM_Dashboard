@@ -29,7 +29,7 @@ const COLORS = [
 const STATUS_LABELS = {
   'correct': 'Đúng',
   'incorrect': 'Sai',
-  'unchecked': 'Chưa kiểm tra'
+  'unchecked': 'Chưa đánh giá'
 };
 
 // Hàm định dạng tên hiển thị cho Legend Pie Chart
@@ -97,7 +97,13 @@ const columns = [
         overflowY: 'auto',
         paddingRight: '5px'
       }}>
-        <Markdown>{text}</Markdown>
+        <Markdown
+          components={{
+            a: ({ node, ...props }) => (
+              <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+            )
+          }}
+        >{text}</Markdown>
       </div>
     ),
   },
@@ -131,9 +137,9 @@ const columns = [
     render: (status) => {
       // 1. Định nghĩa mapping cho các trạng thái
       const statusMap = {
+        0: { text: 'Chưa đánh giá', color: 'default', icon: <ClockCircleOutlined /> },
         1: { text: 'Đúng', color: 'success', icon: <CheckCircleOutlined /> },
         2: { text: 'Sai', color: 'error', icon: <CloseCircleOutlined /> },
-        0: { text: 'Chưa kiểm tra', color: 'default', icon: <ClockCircleOutlined /> },
       };
       // 2. Lấy config tương ứng, mặc định là 'Chưa kiểm tra' nếu status không hợp lệ
       const config = statusMap[status] || statusMap[2];
@@ -241,7 +247,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [status, searchQuery, currentPage, pageSize, activePage]);
+  }, [status, searchQuery, currentPage, pageSize]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {

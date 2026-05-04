@@ -1,7 +1,7 @@
-BE_URL: http://localhost
-BE_PORT: 8174
+BE_URL: http://10.110.40.98
+BE_PORT: 8021
 ENDPOINT:
-  GET_DATA_COUNT: /api/get_from_db/stats
+  GET_DATA_COUNT: /api/process/statics
   SEARCH: /api/process/search
   FETCH_QUESTION: /api/process/fetch_question
   TAGGING: /api/process/tagging

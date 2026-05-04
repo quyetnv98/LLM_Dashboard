@@ -73,7 +73,13 @@ const CompareRespone = ({ data, onNavigate }) => {
                             <Divider className="my-4" />
 
                             <div className="prose max-w-none bg-gray-50 p-4 rounded-lg border border-gray-100 min-h-[400px]">
-                                <Markdown>{item.answer}</Markdown>
+                                <Markdown
+                                    components={{
+                                        a: ({ node, ...props }) => (
+                                            <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+                                        )
+                                    }}
+                                >{item.answer}</Markdown>
                             </div>
 
                             {item.note && (
