@@ -123,11 +123,22 @@ def save_to_db(results: List[dict]):
 async def fetch_question(req: FetchRequest, request: Request):
     """
     Endpoint nhận vào list câu hỏi, chia thành các batch và gọi API chatbot.
+
+    **Tham số**:
+    - user_id: User ID
+    - model_name: Tên model
+    - list_quest: List câu hỏi
+    - batch_size: Số batch
+    
+    **Trả về**:
+    - List câu trả lời theo batch
+    - Thông tin batch
+    - Trasaction ID của lượt gọi API 
+
     Kết quả được lưu trực tiếp vào SQLite database.
     """
     transid = request.headers.get("transId", datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     logger.info(f"[{transid}] - Bắt đầu xử lý {len(req.list_quest)} câu hỏi cho model {req.model_name} với batch_size {req.batch_size}")
-    
     questions = req.list_quest
     batch_size = req.batch_size
     model_name = req.model_name

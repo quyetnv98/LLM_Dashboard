@@ -3,7 +3,7 @@ import { Layout, Card, Button, Typography, Space, Upload, InputNumber, Input, Ta
 import { UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined } from '@ant-design/icons';
 import { Database, Play, LayoutPanelLeft, HelpCircle, Clock, PlayIcon, Tag as TagIcon } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/config';
-
+import Markdown from 'react-markdown';
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -41,8 +41,7 @@ export default function Playground({ onNavigate }) {
                 "batch_size": batchsize,
                 "list_quest": itemsToProcess.map(item => item.question)
             };
-
-            const response = await fetch(API_ENDPOINTS.PROCESS, {
+            const response = await fetch(API_ENDPOINTS.FETCH_QUESTION, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -52,23 +51,10 @@ export default function Playground({ onNavigate }) {
 
             const data = await response.json();
 
-            // LOGIC MỚI: Làm phẳng dữ liệu và lưu metadata batch
-            // let allResults = [];
-            // if (data.results_by_batch && Array.isArray(data.results_by_batch)) {
-            //     allResults = data.results_by_batch.flatMap(batch => batch.results);
-            //     // Lưu lại metadata của từng batch (thời gian chạy batch...)
-            //     setBatchMetadata(data.results_by_batch);
-            // } else if (Array.isArray(data)) {
-            //     allResults = data;
-            //     setBatchMetadata([]);
-            // }
 
             const endTime = Date.now();
             const calcTotalTime = ((endTime - startTime) / 1000).toFixed(2);
             setTotalExecutionTime(calcTotalTime);
-
-            // 2. CẬP NHẬT LOGIC MAPPING THEO BATCH
-            console.log("Raw Response from API:", data);
 
             // 2. CẬP NHẬT LOGIC MAPPING THEO BATCH
             console.log("Raw Response from API:", data);
@@ -491,10 +477,9 @@ export default function Playground({ onNavigate }) {
                                                                     </div>
                                                                 )}
                                                             </div>
-
                                                             <Skeleton loading={item.loading} active>
                                                                 <div className="max-h-[220px] min-h-[140px] overflow-y-auto text-sm text-gray-700 leading-relaxed font-sans bg-[#f8fafc] p-3 rounded-lg border border-slate-100">
-                                                                    {item.answer ? item.answer : <Text type="secondary" italic className="text-xs">Chưa có kết quả.</Text>}
+                                                                    {item.answer ? <Markdown>{item.answer}</Markdown> : <Text type="secondary" italic className="text-xs">Chưa có kết quả.</Text>}
                                                                 </div>
                                                             </Skeleton>
                                                         </Col>

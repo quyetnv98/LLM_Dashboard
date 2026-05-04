@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 from routes.config import get_connection, logger
 
 
-router = APIRouter(prefix="/api", tags=["Search"])
+router = APIRouter(prefix="/api/process", tags=["Search"])
 
 
 @router.get("/search")

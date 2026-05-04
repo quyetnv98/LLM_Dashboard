@@ -37,7 +37,6 @@ const renderColorfulLegendText = (value) => {
   return STATUS_LABELS[value] || value;
 }
 
-
 // Top Card Config
 const MetricCard = ({ icon, title, value, onClick }) => (
   <div
@@ -206,13 +205,12 @@ export default function App() {
     }
 
     fetchCountData();
-  }, []);
+  }, [activePage]);
 
   // 2. Gọi API lấy thông tin bản dữ liệu
   const loadTableData = useCallback(async (page = currentPage, limit = pageSize) => {
     setLoading(true);
     try {
-
       if (!API_ENDPOINTS.SEARCH) {
         console.warn('Missing ENDPOINT.GET_DATA_ALL in config');
         return;
@@ -243,7 +241,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, status, currentPage, pageSize]);
+  }, [status, searchQuery, currentPage, pageSize, activePage]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {

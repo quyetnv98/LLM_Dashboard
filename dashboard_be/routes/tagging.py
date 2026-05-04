@@ -3,21 +3,30 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from routes.config import get_connection, logger
 
-router = APIRouter(prefix="/api", tags=["Tagging"])
+router = APIRouter(prefix="/api/process", tags=["Tagging"])
 
 class TaggingItem(BaseModel):
     session_id: str = Field(..., description="Session ID của bản ghi")
-    is_checked: int = Field(..., ge=1, le=2, description="1: đúng, 2: sai")
+    is_checked: int = Field(..., ge=0, le=2, description="0: chưa check,    1: đúng, 2: sai")
     note: Optional[str] = Field(default="", description="Ghi chú khi tagging")
 
 class TaggingRequest(BaseModel):
     data: List[TaggingItem]
 
 @router.post("/tagging")
-def update_tagging(request: TaggingRequest):
+def tagging_request(request: TaggingRequest):
     """
-    API cập nhật trạng thái tagging cho danh sách dữ liệu.
-    Theo yêu cầu: Cập nhật các bản ghi có trạng thái is_checked là 0 ở DB.
+    Cập nhật trạng thái tagging cho danh sách dữ liệu.
+
+    ### Tham số đầu vào:
+    - **request**: Đối tượng chứa danh sách các câu hỏi cần tagging.
+    - Mỗi item trong list `data` bao gồm:
+        - `session_id`: ID của phiên làm việc.
+        - `is_checked`: Trạng thái tagging (0: chưa check, 1: đúng, 2: sai).
+        - `note`: Ghi chú chi tiết cho bản ghi.
+
+    ### Trả về:
+    - **dict**: Trạng thái thành công và số lượng bản ghi đã cập nhật.
     """
     try:
         conn = get_connection()

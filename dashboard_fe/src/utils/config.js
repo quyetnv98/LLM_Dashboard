@@ -2,16 +2,20 @@ import jsyaml from 'js-yaml'
 
 // Đối tượng chứa các URL đã được build sẵn
 export const API_ENDPOINTS = {
-    GET_DATA_ALL: '',
     GET_DATA_COUNT: '',
     SEARCH: '',
-    PROCESS: ''
+    FETCH_QUESTION: '',
+    TAGGING: '',
+    DELETING: '',
 };
 
 export function buildApiUrl(beUrl = '', bePort = '', path = '') {
-    if (!beUrl || !bePort || !path) return '';
+    if (!path) return '';
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return `${beUrl}:${bePort}${normalizedPath}`;
+    if (!beUrl || !bePort)
+        return `${window.location.origin}${normalizedPath}`;
+    else return `${beUrl}:${bePort}${normalizedPath}`;
+
 }
 // fetch config.yaml
 export async function initConfig() {
@@ -34,6 +38,7 @@ export async function initConfig() {
                     API_ENDPOINTS[key] = buildApiUrl(BE_URL, BE_PORT, ENDPOINT[key]);
                 });
             }
+            console.log(API_ENDPOINTS);
         }
     } catch (e) {
         console.warn("Failed to load config.yaml", e);

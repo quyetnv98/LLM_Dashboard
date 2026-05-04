@@ -1,7 +1,8 @@
-BE_URL: http://127.0.0.1
-BE_PORT: 8021
-ENDPOINT: 
-  GET_DATA_ALL: /api/get_from_db/records
+BE_URL: http://localhost
+BE_PORT: 8174
+ENDPOINT:
   GET_DATA_COUNT: /api/get_from_db/stats
-  SEARCH: /api/search/
-  PROCESS: /api/process/fetch_question
+  SEARCH: /api/process/search
+  FETCH_QUESTION: /api/process/fetch_question
+  TAGGING: /api/process/tagging
+  DELETING: /api/process/deleting
