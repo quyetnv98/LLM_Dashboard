@@ -6,7 +6,11 @@ router = APIRouter(prefix="/api/process", tags=["Get list user, model"])
 @router.get("/list_users_models")
 def get_users_models():
     """
-    Trả về  list `user_id`, `model_name` trong database
+    ## Lấy ra danh sách `user_id` và `model_name`
+
+    ### Trả về  
+    - **users_list** : Danh sách các user có trong db
+    - **models_list** : Danh sách các model có trong
     """
     try:
         conn = get_connection()

@@ -16,14 +16,14 @@ class TaggingRequest(BaseModel):
 @router.post("/tagging")
 def tagging_request(request: TaggingRequest):
     """
-    Cập nhật trạng thái tagging cho danh sách dữ liệu.
+   ## Cập nhật trạng thái tagging cho danh sách dữ liệu.
 
     ### Tham số đầu vào:
-    - **request**: Đối tượng chứa danh sách các câu hỏi cần tagging.
+    - `request`: Đối tượng chứa list các câu hỏi cần tagging.
     - Mỗi item trong list `data` bao gồm:
-        - `session_id`: ID của phiên làm việc.
-        - `is_checked`: Trạng thái tagging (0: chưa check, 1: đúng, 2: sai).
-        - `note`: Ghi chú chi tiết cho bản ghi.
+        - **session_id**: ID của phiên làm việc.
+        - **is_checked**: Trạng thái tagging (0: chưa check, 1: đúng, 2: sai).
+        - **note**: Ghi chú chi tiết cho bản ghi.
 
     ### Trả về:
     - **dict**: Trạng thái thành công và số lượng bản ghi đã cập nhật.

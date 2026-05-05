@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tooltip, Layout,Checkbox, Button, Space, Input, Tag, Dropdown, Select } from 'antd';
-import { Database, Play, HelpCircle, Tag as TagIcon } from 'lucide-react';
+import { Database, Play, HelpCircle, Search, Tag as TagIcon } from 'lucide-react';
 import { API_ENDPOINTS } from '../utils/config';
 import Markdown from 'react-markdown';
-import { ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, UploadOutlined, FileTextOutlined, SendOutlined, SettingOutlined, DeleteOutlined, UserOutlined, PlaySquareOutlined  } from '@ant-design/icons';
+import { FilterOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, SettingOutlined, DeleteOutlined, UserOutlined,InfoCircleFilled  } from '@ant-design/icons';
 const { Header} = Layout;
 const { Option } = Select;
 
@@ -13,7 +13,7 @@ const TaggingData = ({ onNavigate }) => {
   const [pageSize, setPageSize] = useState(20);
   const [totalUncheckedRecords, setTotalUncheckedRecords] = useState(0);
   const [dataUnchecked, setDataUnchecked] = useState([]);
-  const [modifiedData, setModifiedData] = useState({}); // Lưu các session_id và dữ liệu đã thay đổi
+  const [modifiedData, setModifiedData] = useState({}); // Lưu các session_id và dữ liệu đã thay đổi trước khi submit
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Mapping màu sắc
@@ -201,7 +201,7 @@ const TaggingData = ({ onNavigate }) => {
               color: getStatusColor(config.color),
               fontWeight: 'bold'
             }}
-            bordered={false}
+            variant="borderless"
             onChange={(newStatus) => {
               handleStatusUpdate(record.session_id, newStatus);
             }}
@@ -243,6 +243,36 @@ const TaggingData = ({ onNavigate }) => {
   const alwaysVisibleKeys = ['index', 'question', 'answer', 'is_checked'];
   const [visibleColumnKeys, setVisibleColumnKeys] = useState(columns.map(c => c.key));
   const filteredColumns = columns.filter(col => alwaysVisibleKeys.includes(col.key) || visibleColumnKeys.includes(col.key));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [userList, setUserList] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [modelList, setModelList] = useState([]);
+  
+  // Lấy list users , model trong db
+    useEffect(() => {
+      const fetchUserModel = async () => {
+        try {
+          if (!API_ENDPOINTS.LIST_USERS_MODELS) {
+            console.log('Missing ENDPOINT.LIST_USERS_MODELS in config');
+            return;
+          }
+          const respone = await fetch(API_ENDPOINTS.LIST_USERS_MODELS, { method: "GET" });
+          if (!respone.ok) {
+            throw new Error(`HTTP ${respone.status} when calling ${API_ENDPOINTS.LIST_USERS_MODELS}`);
+          }
+          const data = await respone.json();
+          console.log(data);
+          console.log("Dữ liệu user mới:", data.users_list); // Log trực tiếp ở đây
+          setUserList(data.users_list);
+          setModelList(data.models_list);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
+      }
+  
+      fetchUserModel();
+    }, []);
 
   // Gọi API lấy thông tin dữ liệu chưa được đánh nhãn
   const loadUncheckedData = useCallback(async (page = currentPage, limit = pageSize) => {
@@ -253,8 +283,16 @@ const TaggingData = ({ onNavigate }) => {
         return;
       }
       const requestUrl = new URL(API_ENDPOINTS.SEARCH);
-      requestUrl.searchParams.set('query', '');
+      if (searchQuery !== "") {
+        requestUrl.searchParams.set('query', String(searchQuery));
+      }
       requestUrl.searchParams.set('is_checked', '0');
+      if (selectedUser !== "") {
+        requestUrl.searchParams.set('is_user', String(selectedUser));
+      }
+      if (selectedModel !== "") {
+        requestUrl.searchParams.set('is_model', String(selectedModel));
+      }
       requestUrl.searchParams.set('page_index', String(page));
       requestUrl.searchParams.set('page_size', String(limit));
       const respone = await fetch(requestUrl.toString(), { method: "GET" });
@@ -273,7 +311,7 @@ const TaggingData = ({ onNavigate }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize]);
+  }, [currentPage, pageSize, selectedUser ,selectedModel ,searchQuery]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -334,43 +372,101 @@ const TaggingData = ({ onNavigate }) => {
                 </div>
             </Header>
             <Layout className="flex-1 overflow-y-auto bg-gray-50 p-6">
-              {/* Filter Bar */}
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
-                <div className="flex flex-wrap items-start gap-x-10 gap-y-6">
-                  {/* Column Visibility Checkboxes */}
-                  <div className="flex-1 min-w-[400px]">
-                    <div className="flex items-center gap-2 mb-4">
-                      <SettingOutlined className="text-blue-500 text-sm" />
-                      <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Hiển thị cột</span>
-                    </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-2">
-                    {columns
-                      .filter(col => !alwaysVisibleKeys.includes(col.key))
-                      .map(col => (
-                        <Checkbox
-                          key={col.key}
-                          checked={visibleColumnKeys.includes(col.key)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setVisibleColumnKeys([...visibleColumnKeys, col.key]);
-                            } else {
-                              if (visibleColumnKeys.length > 1) {
-                                setVisibleColumnKeys(visibleColumnKeys.filter(k => k !== col.key));
-                              }
+           
+            {/* Filter Bar */}
+            <div className="mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm flex flex-col gap-4">
+              {/* 1. Khu vực bộ lọc */}
+              <div className="flex flex-wrap items-start gap-x-10 gap-y-6">
+                {/* Search Input */}
+                <div className="flex-1 lg:max-w-[40%] min-w-[300px]">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+                    <Search size={12} className="inline mr-1" /> Tìm kiếm câu hỏi
+                  </label>
+                  <Input
+                    placeholder="Nhập nội dung câu hỏi..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onPressEnter={() => loadUncheckedData(1, pageSize)}
+                    suffix={<Search size={16} className="text-gray-400 cursor-pointer" 
+                    onClick={() => loadUncheckedData(1, pageSize)} />}
+                    className="h-9 rounded-md"
+                  />
+                </div>
+
+                {/* Users Select */}
+                <div className="w-full md:w-60">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+                    <UserOutlined className="mr-1" /> Users
+                  </label>
+                  <Select
+                    className="w-full h-9"
+                    value={selectedUser}
+                    onChange={(value) => {
+                      setSelectedUser(value);
+                      setCurrentPage(1);
+                    }}
+                    options={[
+                      { value: '', label: 'Tất cả' },
+                      ...userList.map((user) => ({
+                        value: user,
+                        label: user,
+                      })),
+                    ]}
+                  />
+                </div>
+                {/* Model Select */}
+                <div className="w-full md:w-60">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+                    <InfoCircleFilled className="mr-1" /> Model
+                  </label>
+                  <Select
+                    className="w-full h-9"
+                    value={selectedModel}
+                    onChange={(value) => {
+                      setSelectedModel(value);
+                      setCurrentPage(1);
+                    }}
+                    options={[
+                      { value: '', label: 'Tất cả' },
+                      ...modelList.map((model) => ({
+                        value: model,
+                        label: model,
+                      })),
+                    ]}
+                  />
+                </div>
+           </div>
+              {/*Hiển thị cột */}
+                <div className="flex-1 min-w-[400px] ">
+                  <div className="flex items-center gap-2 mb-2 mt-2">
+                  <SettingOutlined className="text-gray-400 text-[10px]" />
+                  <span className="text-[10px] uppercase font-bold text-gray-400">Hiển thị cột</span>
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                    {columns.map(col => (
+                      <Checkbox
+                        key={col.key}
+                        checked={visibleColumnKeys.includes(col.key)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setVisibleColumnKeys([...visibleColumnKeys, col.key]);
+                          } else {
+                            if (visibleColumnKeys.length > 1) {
+                              setVisibleColumnKeys(visibleColumnKeys.filter(k => k !== col.key));
                             }
-                          }}
-                          className="text-[11px] font-medium text-gray-600 hover:text-blue-600 transition-colors"
-                        >
-                          {col.title}
-                        </Checkbox>
-                      ))}
+                          }
+                        }}
+                        className="text-[11px] font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {col.title}
+                      </Checkbox>
+                    ))}
                   </div>
                 </div>
-              </div>
             </div>
             {/* Thanh cập nhật trạng thái - Hiển thị khi có sự thay đổi */}
             {Object.keys(modifiedData).length > 0 && (
-              <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 shadow-md">
+              <div className="mt-2 mb-2 p-4 bg-orange-50 border border-orange-200 rounded-lg flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 shadow-md">
                 <Space size="middle">
                   <Button
                     type="primary"
@@ -404,7 +500,7 @@ const TaggingData = ({ onNavigate }) => {
                             dataSource={dataUnchecked}
                             loading={loading}
                             rowClassName={(record, index) =>
-                                index % 2 === 0 ? '!bg-[#f4f7f9]' : '!bg-white'
+                                index % 2 === 0 ? '!bg-[#f4f7f9]' : '!bg-blue-50'
                             }
                             className="custom-ant-table"
                             // rowSelection={rowSelection}

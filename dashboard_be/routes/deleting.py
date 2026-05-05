@@ -14,7 +14,7 @@ class DeleteRequest(BaseModel):
 @router.post("/deleting")
 def deleting_request(request: DeleteRequest):
     """
-    Xóa dữ liệu theo session_id
+    ## Xóa dữ liệu theo session_id
 
     ### Tham số đầu vào:
     - **request**:  Đối tượng chứa list session_id cần xóa

@@ -22,15 +22,15 @@ def search_questions(
     page_index: int = 1  # Nhận page_index từ FE
 ):
     """
-    Tham số đầu vào:
-    - query: Câu hỏi tìm kiếm, nếu không có lấy tất
-    - is_checked: Trạng thái kiểm tra nếu không có lấy toàn bộ
-    - is_user: User ID nếu không có lấy toàn bộ
-    - is_model: Model name nếu không có lấy toàn bộ
-    - page_size: Số bản ghi mỗi trangtất, mặc định 50 trong swagger, mặc định FE truyền là 20
-    - page_index: Chỉ số trang 
+    ### Tham số đầu vào:
+    - **query**: Câu hỏi tìm kiếm, nếu không có lấy tất
+    - **is_checked**: Trạng thái kiểm tra nếu không có lấy toàn bộ
+    - **is_user**: User ID nếu không có lấy toàn bộ
+    - **is_model**: Model name nếu không có lấy toàn bộ
+    - **page_size**: Số bản ghi mỗi trangtất, mặc định 50 trong swagger, mặc định FE truyền là 20
+    - **page_index**: Chỉ số trang 
         
-    Trả về:
+    ### Trả về:
     - Dữ liệu tìm kiếm
     - Tổng số bản ghi
     - Tổng số trang

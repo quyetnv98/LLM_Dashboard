@@ -13,10 +13,10 @@ router = APIRouter(prefix="/api/process", tags=["Static"])
 @router.get("/statics")
 def get_statics():
     """
-    Thống kê số lượng câu hỏi theo trạng thái kiểm tra:
-    - is_checked = 0 : Chưa được check
-    - is_checked = 1 : Đúng
-    - is_checked = 2 : Sai
+    ## Thống kê số lượng câu hỏi theo trạng thái kiểm tra:
+    - `is_checked` = 0 : Chưa được check
+    - `is_checked` = 1 : Đúng
+    - `is_checked` = 2 : Sai
     """
     try:
         conn = get_connection()

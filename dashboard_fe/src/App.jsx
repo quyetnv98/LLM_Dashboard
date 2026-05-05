@@ -1,4 +1,5 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, } from 'recharts'; import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft, Tag as TagIcon } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ChartTooltip, Legend, } from 'recharts'; 
+import { Database, HelpCircle, ChevronDown, Search, VerifiedIcon, Clock, LucideFileX, Play, LayoutPanelLeft, Tag as TagIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Space, Button, Tooltip, Layout } from 'antd';
 import {
@@ -8,6 +9,7 @@ import {
   InfoCircleOutlined,
   FilterOutlined,
   SettingOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Select, Input, Checkbox, Popover, Dropdown } from 'antd';
 import { API_ENDPOINTS } from './utils/config';
@@ -438,7 +440,7 @@ export default function App() {
                     placeholder="Nhập nội dung câu hỏi..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onPressEnter={() => loadTableData(1, 10)}
+                    onPressEnter={() => loadTableData(1, pageSize)}
                     suffix={<Search size={16} className="text-gray-400 cursor-pointer" onClick={() => loadTableData(1, 10)} />}
                     className="h-9 rounded-md"
                   />
@@ -447,7 +449,7 @@ export default function App() {
                 {/* Users Select */}
                 <div className="w-full md:w-60">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
-                    <FilterOutlined className="mr-1" /> Users
+                    <UserOutlined className="mr-1" /> Users
                   </label>
                   <Select
                     className="w-full h-9"
@@ -468,7 +470,7 @@ export default function App() {
                 {/* Model Select */}
                 <div className="w-full md:w-60">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
-                    <FilterOutlined className="mr-1" /> Model
+                    <InfoCircleOutlined className="mr-1" /> Model
                   </label>
                   <Select
                     className="w-full h-9"

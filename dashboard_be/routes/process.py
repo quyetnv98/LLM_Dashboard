@@ -123,20 +123,20 @@ def save_to_db(results: List[dict]):
 @router.post("/fetch_question")
 async def fetch_question(req: FetchRequest, request: Request):
     """
-    Endpoint nhận vào list câu hỏi, chia thành các batch và gọi API chatbot.
+    ## Endpoint nhận vào list câu hỏi, chia thành các batch và gọi API chatbot.
 
-    **Tham số**:
-    - user_id: User ID
-    - model_name: Tên model
-    - list_quest: List câu hỏi
-    - batch_size: Số batch
+    ### Tham số:
+    - **user_id**: User ID
+    - **model_name**: Tên model
+    - **list_quest**: List câu hỏi
+    - **batch_size**: Số batch
     
-    **Trả về**:
+    ### Trả về:
     - List câu trả lời theo batch
     - Thông tin batch
     - Trasaction ID của lượt gọi API 
 
-    Kết quả được lưu trực tiếp vào SQLite database.
+    *Kết quả được lưu vào SQLite.*
     """
     transid = request.headers.get("transId", datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     logger.info(f"[{transid}] - Bắt đầu xử lý {len(req.list_quest)} câu hỏi cho model {req.model_name} với batch_size {req.batch_size}")
@@ -154,38 +154,118 @@ async def fetch_question(req: FetchRequest, request: Request):
         
         total_batches = (len(questions) - 1) // batch_size + 1
         
+        # async with httpx.AsyncClient() as client:
+        #     for i in range(0, len(questions), batch_size):
+        #         batch = questions[i:i + batch_size]
+        #         batch_no = i // batch_size + 1
+        #         logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches} ({len(batch)} câu hỏi)...")
+                
+        #         batch_start_time = time.time()
+        #         tasks = [get_response(client, q, model_name, user_id) for q in batch]
+        #         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+        #         valid_results = []
+        #         for r in batch_results:
+        #             if isinstance(r, dict):
+        #                 valid_results.append(r)
+        #             else:
+        #                 logger.error(f"[{transid}] - Lỗi trong batch: {r}")
+                
+        #         save_to_db(valid_results)
+                
+        #         batch_end_time = time.time()
+        #         batch_duration = batch_end_time - batch_start_time
+                
+        #         chunk_data = {
+        #             "batch_no": batch_no,
+        #             "total_batch": total_batches,
+        #             "batch_size": len(batch),
+        #             "processed": len(valid_results),
+        #             "batch_time_executed": f"{batch_duration:.2f}s",
+        #             "results": valid_results
+        #         }
+                
+        #         yield json.dumps(chunk_data) + "\n"
+                
+        #         if i + batch_size < len(questions):
+        #             await asyncio.sleep(0.1)
+
         async with httpx.AsyncClient() as client:
             for i in range(0, len(questions), batch_size):
-                batch = questions[i:i + batch_size]
                 batch_no = i // batch_size + 1
-                logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches} ({len(batch)} câu hỏi)...")
-                
-                batch_start_time = time.time()
-                tasks = [get_response(client, q, model_name, user_id) for q in batch]
-                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-                
-                valid_results = []
-                for r in batch_results:
-                    if isinstance(r, dict):
-                        valid_results.append(r)
-                    else:
-                        logger.error(f"[{transid}] - Lỗi trong batch: {r}")
-                
-                save_to_db(valid_results)
-                
-                batch_end_time = time.time()
-                batch_duration = batch_end_time - batch_start_time
-                
-                chunk_data = {
-                    "batch_no": batch_no,
-                    "total_batch": total_batches,
-                    "batch_size": len(batch),
-                    "processed": len(valid_results),
-                    "batch_time_executed": f"{batch_duration:.2f}s",
-                    "results": valid_results
-                }
-                
-                yield json.dumps(chunk_data) + "\n"
+                batch = questions[i:i + batch_size]
+                try:
+                    logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches}...")
+                    
+                    batch_start_time = time.time()
+                    tasks = [get_response(client, q, model_name, user_id) for q in batch]
+                    batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+                    
+                    valid_results = []
+                    for idx, r in enumerate(batch_results):
+                        if isinstance(r, dict):
+                            valid_results.append(r)
+                        else:
+                            # Nếu r là Exception (do return_exceptions=True), tạo kết quả thông báo lỗi
+                            logger.error(f"[{transid}] - Lỗi câu hỏi '{batch[idx]}': {r}")
+                            valid_results.append({
+                                "question": batch[idx],
+                                "answer": f"Lỗi hệ thống: {str(r)}",
+                                "error": True # Đánh dấu lỗi để FE xử lý nếu cần
+                            })
+                    
+                    # Lưu vào DB 
+                    try:
+                        save_to_db([r for r in valid_results if not r.get("error")])
+                    except Exception as e:
+                        logger.error(f"Lỗi khi lưu DB cho batch {batch_no}: {e}")
+
+                    batch_duration = time.time() - batch_start_time
+                    
+                    chunk_data = {
+                        "batch_no": batch_no,
+                        "total_batch": total_batches,
+                        "batch_size": len(batch),
+                        "processed": len(valid_results),
+                        "batch_time_executed": f"{batch_duration:.2f}s",
+                        "results": valid_results
+                    }
+                    
+                    yield json.dumps(chunk_data) + "\n"
+
+                except Exception as e:
+                    # Bắt lỗi nghiêm trọng phát sinh trong quá trình xử lý batch
+                    logger.error(f"[{transid}] - Lỗi tại batch {batch_no}: {e}")
+                    
+                    # Tạo danh sách kết quả lỗi cho tất cả các câu trong batch này
+                    error_results = []
+                    for q in batch:
+                        error_results.append({
+                            "user_id": user_id,
+                            "session_id": "ERROR",
+                            "model_name": model_name,
+                            "question": q,
+                            "answer": f"Lỗi API hoặc không kết nối được: {str(e)}",
+                            "time_sent_question": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "time_received_response": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "time_executed": "0.00s",
+                            "thought": "",
+                            "is_checked": 0,
+                            "note": "",
+                            "error": True
+                        })
+
+                    error_chunk = {
+                        "batch_no": batch_no,
+                        "total_batch": total_batches,
+                        "batch_size": len(batch),
+                        "processed": len(batch),
+                        "batch_time_executed": "0.00s",
+                        "results": error_results
+                    }
+                    yield json.dumps(error_chunk) + "\n"
+                    # QUAN TRỌNG: Tiếp tục chạy các batch sau
+                    continue
                 
                 if i + batch_size < len(questions):
                     await asyncio.sleep(0.1)
