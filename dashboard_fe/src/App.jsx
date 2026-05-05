@@ -41,9 +41,9 @@ export default function App() {
   const [dataPie, setDataPie] = useState([]);
   const [totalAllRecords, setTotalAllRecords] = useState(0);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [isCCheckTrue, setIsCCheckTrue] = useState(0);
-  const [isCCheckFalse, setIsCCheckFalse] = useState(0);
-  const [isCCheckUnchecked, setIsCCheckUnchecked] = useState(0);
+  const [isCheckTrue, setIsCheckTrue] = useState(0);
+  const [isCheckFalse, setIsCheckFalse] = useState(0);
+  const [isCheckUnchecked, setIsCheckUnchecked] = useState(0);
 
   const [dataSource, setDataSource] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -232,9 +232,9 @@ export default function App() {
 
         setDataPie(formattedData);
         setTotalRecords(Number(data.total) || 0);
-        setIsCCheckTrue(Number(data.correct) || 0);
-        setIsCCheckFalse(Number(data.incorrect) || 0);
-        setIsCCheckUnchecked(Number(data.unchecked) || 0);
+        setIsCheckTrue(Number(data.correct) || 0);
+        setIsCheckFalse(Number(data.incorrect) || 0);
+        setIsCheckUnchecked(Number(data.unchecked) || 0);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -242,6 +242,7 @@ export default function App() {
 
     fetchCountData();
   }, [activePage]);
+
 
   // 2. Gọi API lấy thông tin bản dữ liệu
   const loadTableData = useCallback(async (page = currentPage, limit = pageSize) => {
@@ -308,6 +309,17 @@ export default function App() {
     }),
   };
 
+  const handleNavigate = (page) => {
+    if (page === 'dashboard') {
+      setSelectedUser('');
+      setSelectedModel('');
+      setStatus('');
+      setSearchQuery('');
+      setCurrentPage(1);
+    }
+    setActivePage(page);
+  };
+
   return (
     <Layout className="bg-[#f8fafc] min-h-screen font-sans">
       {activePage === 'dashboard' ? (
@@ -322,21 +334,21 @@ export default function App() {
                       key: 'dashboard',
                       label: 'LLM Analytics Overview',
                       icon: <Database size={16} />,
-                      onClick: () => setActivePage('dashboard'),
+                      onClick: () => handleNavigate('dashboard'),
                       disabled: activePage === 'dashboard',
                     },
                     {
                       key: 'playground',
                       label: 'LLM Prompt Response',
                       icon: <Play size={16} />,
-                      onClick: () => setActivePage('playground'),
+                      onClick: () => handleNavigate('playground'),
                       disabled: activePage === 'playground',
                     },
                     {
                       key: 'tagging',
                       label: 'Tagging Dataset',
                       icon: <TagIcon size={16} />,
-                      onClick: () => setActivePage('tagging'),
+                      onClick: () => handleNavigate('tagging'),
                       disabled: activePage === 'tagging',
                     },
                   ],
@@ -371,13 +383,13 @@ export default function App() {
                   {/* Left Side: 4 Metric Cards in a grid */}
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-4">
                     <MetricCard icon={<Database size={24} />} title="Tổng số bản ghi" value={totalRecords} />
-                    <MetricCard icon={<VerifiedIcon size={24} />} title="Số lượng đúng" value={isCCheckTrue} />
-                    <MetricCard icon={<LucideFileX size={24} />} title="Số lượng sai" value={isCCheckFalse} />
+                    <MetricCard icon={<VerifiedIcon size={24} />} title="Số lượng đúng" value={isCheckTrue} />
+                    <MetricCard icon={<LucideFileX size={24} />} title="Số lượng sai" value={isCheckFalse} />
                     <MetricCard
                       icon={<Clock size={24} />}
                       title="Số lượng chưa đánh giá"
-                      value={isCCheckUnchecked}
-                      onClick={() => setActivePage('tagging')}
+                      value={isCheckUnchecked}
+                      onClick={() => handleNavigate('tagging')}
                     />
                   </div>
 
@@ -414,11 +426,12 @@ export default function App() {
             </div>
 
             {/* Filter Bar */}
-            <div className="mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
+            <div className="mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm flex flex-col gap-4">
+              {/* 1. Khu vực bộ lọc */}
               <div className="flex flex-wrap items-start gap-x-10 gap-y-6">
                 {/* Search Input */}
-                <div className="w-full md:w-72">
-                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                <div className="flex-1 lg:max-w-[40%] min-w-[300px]">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
                     <Search size={12} className="inline mr-1" /> Tìm kiếm câu hỏi
                   </label>
                   <Input
@@ -432,7 +445,7 @@ export default function App() {
                 </div>
 
                 {/* Users Select */}
-                <div className="w-full md:w-40">
+                <div className="w-full md:w-60">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
                     <FilterOutlined className="mr-1" /> Users
                   </label>
@@ -453,7 +466,7 @@ export default function App() {
                   />
                 </div>
                 {/* Model Select */}
-                <div className="w-full md:w-40">
+                <div className="w-full md:w-60">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
                     <FilterOutlined className="mr-1" /> Model
                   </label>
@@ -473,8 +486,8 @@ export default function App() {
                     ]}
                   />
                 </div>
-                                {/* Status Select */}
-                <div className="w-full md:w-40">
+                {/* Status Select */}
+                <div className="w-full md:w-60">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
                     <FilterOutlined className="mr-1" /> Trạng thái
                   </label>
@@ -493,16 +506,14 @@ export default function App() {
                     ]}
                   />
                 </div>
-
-
-              </div>
-              {/* Column Visibility Checkboxes */}
+           </div>
+              {/*Hiển thị cột */}
                 <div className="flex-1 min-w-[400px] ">
                   <div className="flex items-center gap-2 mb-2 mt-2">
-                    <SettingOutlined className="text-gray-400 text-[10px]" />
-                    <span className="text-[10px] uppercase font-bold text-gray-400">Hiển thị cột</span>
-                  </div>
-                  <div className="flex flex-wrap gap-x-10 gap-y-4">
+                  <SettingOutlined className="text-gray-400 text-[10px]" />
+                  <span className="text-[10px] uppercase font-bold text-gray-400">Hiển thị cột</span>
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
                     {columns.map(col => (
                       <Checkbox
                         key={col.key}
@@ -546,7 +557,7 @@ export default function App() {
                     type="primary"
                     size="middle"
                     disabled={selectedRows.length !== 2}
-                    onClick={() => setActivePage('compare')}
+                    onClick={() => handleNavigate('compare')}
                     icon={<LayoutPanelLeft size={16} />}
                     className="bg-blue-600 hover:bg-blue-700"
                   >
@@ -565,6 +576,7 @@ export default function App() {
                   loading={loading}
                   rowClassName={(record, index) =>
                     index % 2 === 0 ? '!bg-[#f4f7f9]' : '!bg-white'
+                    // index % 2 === 0 ? '!bg-[#f4f7f9]' : '!bg-blue-50'
                   }
                   className="custom-ant-table"
                   rowSelection={rowSelection}
@@ -595,13 +607,13 @@ export default function App() {
           </div>
         </>
       ) : activePage === 'playground' ? (
-        <Playground onNavigate={(page) => setActivePage(page)} />
+        <Playground onNavigate={handleNavigate} />
       ) : activePage === 'tagging' ? (
-        <TaggingData onNavigate={(page) => setActivePage(page)} />
+        <TaggingData onNavigate={handleNavigate} />
       ) : (
         <CompareRespone
           data={selectedRows}
-          onNavigate={(page) => setActivePage(page)}
+          onNavigate={handleNavigate}
         />
       )}
     </Layout>

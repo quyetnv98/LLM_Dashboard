@@ -40,7 +40,7 @@ def search_questions(
         conn = get_connection()
         cursor = conn.cursor()
 
-        # Tính toán offset từ page_index và page_size
+        # Tính toán offset " số dòng dữ liệu bỏ qua" từ page_index và page_size
 
         offset = (page_index - 1) * page_size
 
@@ -84,7 +84,6 @@ def search_questions(
         select_query = f"SELECT * FROM answer{where_clause} LIMIT ? OFFSET ?"
         logger.info(select_query)
         cursor.execute(select_query, tuple(params + [page_size, offset]))
-
         rows = cursor.fetchall()
         conn.close()
 

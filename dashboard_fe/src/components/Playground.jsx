@@ -20,7 +20,6 @@ export default function Playground({ onNavigate }) {
     const [selectedModel, setSelectedModel] = useState('gemma-4-2b-a4b-it-4bit');
     const [batchsize, setBatchsize] = useState(1); // Số luồng test (1-5)
     const [userId, setUserId] = useState('user_test_01'); // User ID cho session test
-    // eslint-disable-next-line no-unused-vars
     const [batchMetadata, setBatchMetadata] = useState([]); // Lưu thông tin metadata của từng batch
     const [totalExecutionTime, setTotalExecutionTime] = useState(null); // Lưu tổng thời gian xử lý thực tế
     const abortControllerRef = React.useRef(null);
@@ -557,7 +556,7 @@ export default function Playground({ onNavigate }) {
                                                                 <div className="max-h-[220px] min-h-[140px] overflow-y-auto text-sm text-gray-700 leading-relaxed font-sans bg-[#f8fafc] p-3 rounded-lg border border-slate-100">
                                                                     {item.answer ? <Markdown
                                                                         components={{
-                                                                            a: ({ node, ...props }) => (
+                                                                            a: ({ ...props }) => (
                                                                                 <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
                                                                             )
                                                                         }}
