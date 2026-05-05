@@ -20,22 +20,6 @@ import TaggingData from './components/TaggingData';
 
 const { Header } = Layout;
 
-const COLORS = [
-  '#10b981', // Xanh lá 'Unchecked'
-  '#3b82f6', // Xanh dương 'Correct'
-  '#ef4444',  // Đỏ cho 'Incorrect'
-];
-
-const STATUS_LABELS = {
-  'correct': 'Đúng',
-  'incorrect': 'Sai',
-  'unchecked': 'Chưa đánh giá'
-};
-
-// Hàm định dạng tên hiển thị cho Legend Pie Chart
-const renderColorfulLegendText = (value) => {
-  return STATUS_LABELS[value] || value;
-}
 
 // Top Card Config
 const MetricCard = ({ icon, title, value, onClick }) => (
@@ -51,114 +35,6 @@ const MetricCard = ({ icon, title, value, onClick }) => (
   </div>
 );
 
-// Table Config
-// a. Cấu hình các cột của bảng
-const columns = [
-  {
-    title: 'STT',
-    key: 'index',
-    width: 50,
-    align: 'center',
-    render: (text, record, index) => index + 1,
-  },
-  {
-    title: 'User ID',
-    dataIndex: 'user_id',
-    key: 'user_id',
-    width: 70,
-    // ellipsis: true,
-    render: (text) => <Tooltip title={text}>{text}</Tooltip>,
-  },
-  {
-    title: 'Session ID',
-    dataIndex: 'session_id',
-    key: 'session_id',
-    width: 120,
-    // ellipsis: true,
-    render: (text) => <Tooltip title={text}>{text}</Tooltip>,
-  },
-  {
-    title: 'Câu hỏi (Question)',
-    dataIndex: 'question',
-    key: 'question',
-    width: 200,
-    // ellipsis: true,
-    render: (text) => <Tooltip title={text}>{text}</Tooltip>,
-  },
-  {
-    title: 'Câu trả lời (Answer)',
-    dataIndex: 'answer',
-    key: 'answer',
-    width: 450,
-    // ellipsis: { showTitle: false },
-    render: (text) => (
-      <div style={{
-        maxHeight: '200px', // Câu trả lời có thể cho cao hơn một chút
-        overflowY: 'auto',
-        paddingRight: '5px'
-      }}>
-        <Markdown
-          components={{
-            a: ({ node, ...props }) => (
-              <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
-            )
-          }}
-        >{text}</Markdown>
-      </div>
-    ),
-  },
-  {
-    title: 'Model',
-    dataIndex: 'model_name',
-    key: 'model_name',
-    width: 180,
-    align: 'center',
-    render: (name) => <Tag color="blue" className="text-[10px]">{name}</Tag>,
-  },
-  {
-    title: 'Thời gian thực thi',
-    dataIndex: 'time_executed',
-    key: 'time_executed',
-    width: 150,
-    align: 'center',
-    render: (time) => (
-      <span className="text-orange-600 font-medium">
-        <ClockCircleOutlined className="mr-1" /> {time}
-      </span>
-    ),
-  },
-  {
-    title: 'Trạng thái',
-    dataIndex: 'is_checked', // Giả sử field này trả về 0, 1, 2
-    key: 'is_checked',
-    width: 100,
-    align: 'center',
-    onFilter: (value, record) => record.is_checked === value,
-    render: (status) => {
-      // 1. Định nghĩa mapping cho các trạng thái
-      const statusMap = {
-        0: { text: 'Chưa đánh giá', color: 'default', icon: <ClockCircleOutlined /> },
-        1: { text: 'Đúng', color: 'success', icon: <CheckCircleOutlined /> },
-        2: { text: 'Sai', color: 'error', icon: <CloseCircleOutlined /> },
-      };
-      // 2. Lấy config tương ứng, mặc định là 'Chưa kiểm tra' nếu status không hợp lệ
-      const config = statusMap[status] || statusMap[2];
-      return (
-        <Tag icon={config.icon} color={config.color}>
-          {config.text.toUpperCase()}
-        </Tag>
-      );
-    },
-  },
-  {
-    title: 'Ghi chú',
-    key: 'note',
-    dataIndex: 'note',
-    width: 100,
-    align: 'center',
-    render: (text) => <Tooltip title={text}><i style={{ color: 'gray', fontStyle: 'italic' }}>{text}</i></Tooltip>,
-  },
-];
 
 
 export default function App() {
@@ -177,9 +53,163 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [status, setStatus] = useState(''); // Status dùng cho việc tìm kiếm dữ liệu trong db,
   const [activePage, setActivePage] = useState('dashboard');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [userList, setUserList] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [modelList, setModelList] = useState([]);
+
+  const COLORS = [
+    '#10b981', // Xanh lá 'Unchecked'
+    '#3b82f6', // Xanh dương 'Correct'
+    '#ef4444',  // Đỏ cho 'Incorrect'
+  ];
+
+  const STATUS_LABELS = {
+    'correct': 'Đúng',
+    'incorrect': 'Sai',
+    'unchecked': 'Chưa đánh giá'
+  };
+
+  // Hàm định dạng tên hiển thị cho Legend Pie Chart
+  const renderColorfulLegendText = (value) => {
+    return STATUS_LABELS[value] || value;
+  }
+  // Table Config
+  // a. Cấu hình các cột của bảng
+  const columns = [
+    {
+      title: 'STT',
+      key: 'index',
+      width: 50,
+      align: 'center',
+      render: (text, record, index) => (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      title: 'User ID',
+      dataIndex: 'user_id',
+      key: 'user_id',
+      width: 70,
+      // ellipsis: true,
+      render: (text) => <Tooltip title={text}>{text}</Tooltip>,
+    },
+    {
+      title: 'Session ID',
+      dataIndex: 'session_id',
+      key: 'session_id',
+      width: 120,
+      // ellipsis: true,
+      render: (text) => <Tooltip title={text}>{text}</Tooltip>,
+    },
+    {
+      title: 'Câu hỏi (Question)',
+      dataIndex: 'question',
+      key: 'question',
+      width: 200,
+      // ellipsis: true,
+      render: (text) => <Tooltip title={text}>{text}</Tooltip>,
+    },
+    {
+      title: 'Câu trả lời (Answer)',
+      dataIndex: 'answer',
+      key: 'answer',
+      width: 450,
+      // ellipsis: { showTitle: false },
+      render: (text) => (
+        <div style={{
+          maxHeight: '200px', // Câu trả lời có thể cho cao hơn một chút
+          overflowY: 'auto',
+          paddingRight: '5px'
+        }}>
+          <Markdown
+            components={{
+              a: ({...props }) => (
+                <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
+              )
+            }}
+          >{text}</Markdown>
+        </div>
+      ),
+    },
+    {
+      title: 'Model',
+      dataIndex: 'model_name',
+      key: 'model_name',
+      width: 180,
+      align: 'center',
+      render: (name) => <Tag color="blue" className="text-[10px]">{name}</Tag>,
+    },
+    {
+      title: 'Thời gian thực thi',
+      dataIndex: 'time_executed',
+      key: 'time_executed',
+      width: 150,
+      align: 'center',
+      render: (time) => (
+        <span className="text-orange-600 font-medium">
+          <ClockCircleOutlined className="mr-1" /> {time}
+        </span>
+      ),
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'is_checked', // Giả sử field này trả về 0, 1, 2
+      key: 'is_checked',
+      width: 100,
+      align: 'center',
+      onFilter: (value, record) => record.is_checked === value,
+      render: (status) => {
+        // 1. Định nghĩa mapping cho các trạng thái
+        const statusMap = {
+          0: { text: 'Chưa đánh giá', color: 'default', icon: <ClockCircleOutlined /> },
+          1: { text: 'Đúng', color: 'success', icon: <CheckCircleOutlined /> },
+          2: { text: 'Sai', color: 'error', icon: <CloseCircleOutlined /> },
+        };
+        // 2. Lấy config tương ứng, mặc định là 'Chưa kiểm tra' nếu status không hợp lệ
+        const config = statusMap[status] || statusMap[2];
+        return (
+          <Tag icon={config.icon} color={config.color}>
+            {config.text.toUpperCase()}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Ghi chú',
+      key: 'note',
+      dataIndex: 'note',
+      width: 100,
+      align: 'center',
+      render: (text) => <Tooltip title={text}><i style={{ color: 'gray', fontStyle: 'italic' }}>{text}</i></Tooltip>,
+    },
+  ];
   const [visibleColumnKeys, setVisibleColumnKeys] = useState(columns.map(c => c.key));
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
+
+    // Lấy list users , model trong db
+  useEffect(() => {
+    const fetchUserModel = async () => {
+      try {
+        if (!API_ENDPOINTS.LIST_USERS_MODELS) {
+          console.log('Missing ENDPOINT.LIST_USERS_MODELS in config');
+          return;
+        }
+        const respone = await fetch(API_ENDPOINTS.LIST_USERS_MODELS, { method: "GET" });
+        if (!respone.ok) {
+          throw new Error(`HTTP ${respone.status} when calling ${API_ENDPOINTS.LIST_USERS_MODELS}`);
+        }
+        const data = await respone.json();
+        console.log(data);
+        console.log("Dữ liệu user mới:", data.users_list); // Log trực tiếp ở đây
+        setUserList(data.users_list);
+        setModelList(data.models_list);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    }
+
+    fetchUserModel();
+  }, []);
 
   // 1. Lấy dữ liệu thống kê từ DB
   useEffect(() => {
@@ -228,6 +258,12 @@ export default function App() {
       if (status !== "") {
         requestUrl.searchParams.set('is_checked', String(status));
       }
+      if (selectedUser !== "") {
+        requestUrl.searchParams.set('is_user', String(selectedUser));
+      }
+      if (selectedModel !== "") {
+        requestUrl.searchParams.set('is_model', String(selectedModel));
+      }
       requestUrl.searchParams.set('page_index', String(page));
       requestUrl.searchParams.set('page_size', String(limit));
 
@@ -247,7 +283,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [status, searchQuery, currentPage, pageSize]);
+  }, [status, searchQuery, currentPage, pageSize,selectedUser,selectedModel]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -395,7 +431,49 @@ export default function App() {
                   />
                 </div>
 
-                {/* Status Select */}
+                {/* Users Select */}
+                <div className="w-full md:w-40">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+                    <FilterOutlined className="mr-1" /> Users
+                  </label>
+                  <Select
+                    className="w-full h-9"
+                    value={selectedUser}
+                    onChange={(value) => {
+                      setSelectedUser(value);
+                      setCurrentPage(1);
+                    }}
+                    options={[
+                      { value: '', label: 'Tất cả' },
+                      ...userList.map((user) => ({
+                        value: user,
+                        label: user,
+                      })),
+                    ]}
+                  />
+                </div>
+                {/* Model Select */}
+                <div className="w-full md:w-40">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+                    <FilterOutlined className="mr-1" /> Model
+                  </label>
+                  <Select
+                    className="w-full h-9"
+                    value={selectedModel}
+                    onChange={(value) => {
+                      setSelectedModel(value);
+                      setCurrentPage(1);
+                    }}
+                    options={[
+                      { value: '', label: 'Tất cả' },
+                      ...modelList.map((model) => ({
+                        value: model,
+                        label: model,
+                      })),
+                    ]}
+                  />
+                </div>
+                                {/* Status Select */}
                 <div className="w-full md:w-40">
                   <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
                     <FilterOutlined className="mr-1" /> Trạng thái
@@ -416,13 +494,15 @@ export default function App() {
                   />
                 </div>
 
-                {/* Column Visibility Checkboxes */}
-                <div className="flex-1 min-w-[400px]">
-                  <div className="flex items-center gap-2 mb-2">
+
+              </div>
+              {/* Column Visibility Checkboxes */}
+                <div className="flex-1 min-w-[400px] ">
+                  <div className="flex items-center gap-2 mb-2 mt-2">
                     <SettingOutlined className="text-gray-400 text-[10px]" />
                     <span className="text-[10px] uppercase font-bold text-gray-400">Hiển thị cột</span>
                   </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  <div className="flex flex-wrap gap-x-10 gap-y-4">
                     {columns.map(col => (
                       <Checkbox
                         key={col.key}
@@ -443,7 +523,6 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-              </div>
             </div>
 
             {/* So sánh Bar - Hiển thị khi có chọn */}

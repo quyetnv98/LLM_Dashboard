@@ -75,7 +75,7 @@ const CompareRespone = ({ data, onNavigate }) => {
                             <div className="prose max-w-none bg-gray-50 p-4 rounded-lg border border-gray-100 min-h-[400px]">
                                 <Markdown
                                     components={{
-                                        a: ({ node, ...props }) => (
+                                        a: ({...props }) => (
                                             <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" />
                                         )
                                     }}

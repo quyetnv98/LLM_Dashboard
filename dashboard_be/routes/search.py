@@ -12,10 +12,7 @@ from routes.config import get_connection, logger
 
 router = APIRouter(prefix="/api/process", tags=["Search"])
 
-
 @router.get("/search")
-
-
 def search_questions(
     query: str = "",
     is_checked: int = None, #Nếu không có lấy toàn bộ các trạng thái

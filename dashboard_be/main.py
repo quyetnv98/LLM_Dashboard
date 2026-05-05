@@ -7,7 +7,7 @@ from routes.statics import router as static_router
 from routes.process import router as fetch_router
 from routes.tagging import router as tagging_router
 from routes.deleting import router as deleting_router
-from routes.user import router as user_router
+from routes.user_model import router as user_model_router
 import uvicorn
 
 app = FastAPI()
@@ -19,7 +19,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-app.include_router(user_router)
+app.include_router(user_model_router)
 app.include_router(static_router)
 app.include_router(search_router)
 app.include_router(fetch_router)

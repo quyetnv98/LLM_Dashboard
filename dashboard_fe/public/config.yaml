@@ -1,4 +1,5 @@
-BE_URL: http://10.110.40.98
+# BE_URL: http://10.110.40.98
+BE_URL: http://localhost
 BE_PORT: 8021
 ENDPOINT:
   GET_DATA_COUNT: /api/process/statics
@@ -6,3 +7,4 @@ ENDPOINT:
   FETCH_QUESTION: /api/process/fetch_question
   TAGGING: /api/process/tagging
   DELETING: /api/process/deleting
+  LIST_USERS_MODELS: /api/process/list_users_models

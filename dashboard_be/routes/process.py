@@ -30,8 +30,8 @@ async def get_response(client: httpx.AsyncClient, question: str, model_name: str
     }
     data = {
 
-        "messages": question,
-        "userId": user_id,
+        "messages": question.strip(),
+        "userId": user_id.strip(),
         "sessionId": session_id
     }
     
@@ -149,8 +149,8 @@ async def fetch_question(req: FetchRequest, request: Request):
     async def event_generator():
         questions = req.list_quest
         batch_size = req.batch_size
-        model_name = req.model_name
-        user_id = req.user_id
+        model_name = req.model_name.strip()
+        user_id = req.user_id.strip()
         
         total_batches = (len(questions) - 1) // batch_size + 1
         
