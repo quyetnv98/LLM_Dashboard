@@ -37,7 +37,7 @@ async def get_response(client: httpx.AsyncClient, question: str, model_name: str
     
     start_time = time.time()
     start_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
-    
+    logger.info(f"request: {data}")
     try:
         response = await client.post(url, headers=headers, json=data, timeout=60.0)
         response.raise_for_status()
@@ -63,7 +63,7 @@ async def get_response(client: httpx.AsyncClient, question: str, model_name: str
     end_time = time.time()
     end_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))
     calculate_time = end_time - start_time
-    
+
     return {
         "user_id": user_id,
         "session_id": session_id,
@@ -157,8 +157,8 @@ async def fetch_question(req: FetchRequest, request: Request):
         # async with httpx.AsyncClient() as client:
         #     for i in range(0, len(questions), batch_size):
         #         batch = questions[i:i + batch_size]
-        #         batch_no = i // batch_size + 1
-        #         logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches} ({len(batch)} câu hỏi)...")
+        #         batch_num = i // batch_size + 1
+        #         logger.info(f"[{transid}] - Đang xử lý batch {batch_num}/{total_batches} ({len(batch)} câu hỏi)...")
                 
         #         batch_start_time = time.time()
         #         tasks = [get_response(client, q, model_name, user_id) for q in batch]
@@ -177,7 +177,7 @@ async def fetch_question(req: FetchRequest, request: Request):
         #         batch_duration = batch_end_time - batch_start_time
                 
         #         chunk_data = {
-        #             "batch_no": batch_no,
+        #             "batch_num": batch_num,
         #             "total_batch": total_batches,
         #             "batch_size": len(batch),
         #             "processed": len(valid_results),
@@ -190,86 +190,100 @@ async def fetch_question(req: FetchRequest, request: Request):
         #         if i + batch_size < len(questions):
         #             await asyncio.sleep(0.1)
 
-        async with httpx.AsyncClient() as client:
-            for i in range(0, len(questions), batch_size):
-                batch_no = i // batch_size + 1
-                batch = questions[i:i + batch_size]
-                try:
-                    logger.info(f"[{transid}] - Đang xử lý batch {batch_no}/{total_batches}...")
-                    
-                    batch_start_time = time.time()
-                    tasks = [get_response(client, q, model_name, user_id) for q in batch]
-                    batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-                    
-                    valid_results = []
-                    for idx, r in enumerate(batch_results):
-                        if isinstance(r, dict):
-                            valid_results.append(r)
-                        else:
-                            # Nếu r là Exception (do return_exceptions=True), tạo kết quả thông báo lỗi
-                            logger.error(f"[{transid}] - Lỗi câu hỏi '{batch[idx]}': {r}")
-                            valid_results.append({
-                                "question": batch[idx],
-                                "answer": f"Lỗi hệ thống: {str(r)}",
-                                "error": True # Đánh dấu lỗi để FE xử lý nếu cần
-                            })
-                    
-                    # Lưu vào DB 
+        try:
+            async with httpx.AsyncClient() as client:
+                for i in range(0, len(questions), batch_size):
+                    batch_num = i // batch_size + 1
+                    batch = questions[i:i + batch_size]
                     try:
-                        save_to_db([r for r in valid_results if not r.get("error")])
+                        logger.info(f"[{transid}] - Đang xử lý batch {batch_num}/{total_batches}...")
+                        
+                        batch_start_time = time.time()
+                        tasks = [get_response(client, q, model_name, user_id) for q in batch]
+                        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+                        
+                        valid_results = []
+                        for idx, r in enumerate(batch_results):
+                            if isinstance(r, dict):
+                                valid_results.append(r)
+                            else:
+                                # Nếu r là Exception (do return_exceptions=True), tạo kết quả thông báo lỗi
+                                logger.error(f"[{transid}] - Lỗi câu hỏi '{batch[idx]}': {r}")
+                                valid_results.append({
+                                    "user_id": user_id,
+                                    "session_id": "ERROR_ITEM",
+                                    "model_name": model_name,
+                                    "question": batch[idx],
+                                    "answer": f"Lỗi hệ thống: {str(r)}",
+                                    "time_sent_question": time.strftime('%Y-%m-%d %H:%M:%S'),
+                                    "time_received_response": time.strftime('%Y-%m-%d %H:%M:%S'),
+                                    "time_executed": "0.00s",
+                                    "thought": "",
+                                    "is_checked": 0,
+                                    "note": "",
+                                    "error": True
+                                })
+                        
+                        # Lưu vào DB 
+                        try:
+                            save_to_db([r for r in valid_results if not r.get("error")])
+                        except Exception as e:
+                            logger.error(f"Lỗi khi lưu DB cho batch {batch_num}: {e}")
+
+                        batch_duration = time.time() - batch_start_time
+                        
+                        chunk_data = {
+                            "batch_num": batch_num,
+                            "total_batch": total_batches,
+                            "batch_size": len(batch),
+                            "processed": len(valid_results),
+                            "batch_time_executed": f"{batch_duration:.2f}s",
+                            "results": valid_results
+                        }
+                        
+                        logger.info("chunk_data: {}".format(json.dumps(chunk_data, ensure_ascii=False)))
+                        yield f"{json.dumps(chunk_data, ensure_ascii=False)}\n" 
+
                     except Exception as e:
-                        logger.error(f"Lỗi khi lưu DB cho batch {batch_no}: {e}")
+                        # Bắt lỗi nghiêm trọng phát sinh trong quá trình xử lý batch
+                        logger.error(f"[{transid}] - Lỗi batch {batch_num}: {e}")
+                        
+                        # Tạo danh sách kết quả lỗi cho tất cả các câu trong batch này
+                        error_results = []
+                        for q in batch:
+                            error_results.append({
+                                "user_id": user_id,
+                                "session_id": "ERROR_BATCH",
+                                "model_name": model_name,
+                                "question": q,
+                                "answer": f"Lỗi API hoặc không kết nối được: {str(e)}",
+                                "time_sent_question": time.strftime('%Y-%m-%d %H:%M:%S'),
+                                "time_received_response": time.strftime('%Y-%m-%d %H:%M:%S'),
+                                "time_executed": "0.00s",
+                                "thought": "",
+                                "is_checked": 0,
+                                "note": "",
+                                "error": True
+                            })
 
-                    batch_duration = time.time() - batch_start_time
+                        error_chunk = {
+                            "batch_num": batch_num,
+                            "total_batch": total_batches,
+                            "batch_size": len(batch),
+                            "processed": len(batch),
+                            "batch_time_executed": "0.00s",
+                            "results": error_results
+                        }
+                        yield f"{json.dumps(error_chunk, ensure_ascii=False)}\n"
+                        continue
                     
-                    chunk_data = {
-                        "batch_no": batch_no,
-                        "total_batch": total_batches,
-                        "batch_size": len(batch),
-                        "processed": len(valid_results),
-                        "batch_time_executed": f"{batch_duration:.2f}s",
-                        "results": valid_results
-                    }
-                    
-                    yield json.dumps(chunk_data) + "\n"
-
-                except Exception as e:
-                    # Bắt lỗi nghiêm trọng phát sinh trong quá trình xử lý batch
-                    logger.error(f"[{transid}] - Lỗi tại batch {batch_no}: {e}")
-                    
-                    # Tạo danh sách kết quả lỗi cho tất cả các câu trong batch này
-                    error_results = []
-                    for q in batch:
-                        error_results.append({
-                            "user_id": user_id,
-                            "session_id": "ERROR",
-                            "model_name": model_name,
-                            "question": q,
-                            "answer": f"Lỗi API hoặc không kết nối được: {str(e)}",
-                            "time_sent_question": time.strftime('%Y-%m-%d %H:%M:%S'),
-                            "time_received_response": time.strftime('%Y-%m-%d %H:%M:%S'),
-                            "time_executed": "0.00s",
-                            "thought": "",
-                            "is_checked": 0,
-                            "note": "",
-                            "error": True
-                        })
-
-                    error_chunk = {
-                        "batch_no": batch_no,
-                        "total_batch": total_batches,
-                        "batch_size": len(batch),
-                        "processed": len(batch),
-                        "batch_time_executed": "0.00s",
-                        "results": error_results
-                    }
-                    yield json.dumps(error_chunk) + "\n"
-                    # QUAN TRỌNG: Tiếp tục chạy các batch sau
-                    continue
-                
-                if i + batch_size < len(questions):
-                    await asyncio.sleep(0.1)
-
-        logger.info(f"[{transid}] - Đã hoàn thành xử lý stream.")
+                    if i + batch_size < len(questions):
+                        await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            logger.warn(f"[{transid}] - Stream bị hủy bởi Client (Người dùng dừng hoặc đóng trình duyệt).")
+        except Exception as e:
+            logger.error(f"[{transid}] - Lỗi hệ thống trong generator: {e}")
+        finally:
+            logger.info(f"[{transid}] - Đã hoàn thành.")
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")

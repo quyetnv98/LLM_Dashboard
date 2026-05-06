@@ -18,11 +18,40 @@ export default function Playground({ onNavigate }) {
 
     // 2. State cho các cấu hình khác (Model, Params)
     const [selectedModel, setSelectedModel] = useState('gemma-4-2b-a4b-it-4bit');
-    const [batchsize, setBatchsize] = useState(1); // Số luồng test (1-5)
+    const [modelList, setModelList] = useState([]);
+    const [batchsize, setBatchsize] = useState(1); // Số luồng test 
     const [userId, setUserId] = useState('user_test_01'); // User ID cho session test
     const [batchMetadata, setBatchMetadata] = useState([]); // Lưu thông tin metadata của từng batch
     const [totalExecutionTime, setTotalExecutionTime] = useState(null); // Lưu tổng thời gian xử lý thực tế
     const abortControllerRef = React.useRef(null);
+    const testItemsRef = React.useRef(testItems); // Ref để luôn lấy data mới nhất trong async loop
+
+    // Luôn cập nhật ref khi state thay đổi
+    useEffect(() => {
+        testItemsRef.current = testItems;
+    }, [testItems]);
+
+      // Lấy list users , model trong db
+        useEffect(() => {
+          const fetchUserModel = async () => {
+            try {
+              if (!API_ENDPOINTS.LIST_USERS_MODELS) {
+                console.log('Missing ENDPOINT.LIST_USERS_MODELS in config');
+                return;
+              }
+              const respone = await fetch(API_ENDPOINTS.LIST_USERS_MODELS, { method: "GET" });
+              if (!respone.ok) {
+                throw new Error(`HTTP ${respone.status} when calling ${API_ENDPOINTS.LIST_USERS_MODELS}`);
+              }
+              const data = await respone.json();
+              setModelList(data.models_list);
+            } catch (error) {
+              console.error("Error fetching data:", error);
+            }
+          }
+      
+          fetchUserModel();
+        }, []);
 
     // Xử lý gọi API thực tế cho một nhóm câu hỏi
     const processBatchAPI = async (itemsToProcess) => {
@@ -42,6 +71,7 @@ export default function Playground({ onNavigate }) {
             "batch_size": batchsize,
             "list_quest": itemsToProcess.map(item => item.question)
         };
+        console.log(`Payload: ${JSON.stringify(payload)}`);
 
         const response = await fetch(API_ENDPOINTS.FETCH_QUESTION, {
             method: "POST",
@@ -56,7 +86,7 @@ export default function Playground({ onNavigate }) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulatedData = '';
-        let questionPointer = 0; // Để biết đang ở câu hỏi thứ mấy
+        // Không dùng questionPointer nữa, dùng batch_num từ server trả về để tính vị trí
 
         while (true) {
             const { value, done } = await reader.read();
@@ -79,8 +109,9 @@ export default function Playground({ onNavigate }) {
                     console.log("Batch stream:", batchRes);
 
                     if (batchRes.results && Array.isArray(batchRes.results)) {
-                        const currentStartIdx = questionPointer; // Cố định vị trí bắt đầu của batch này
-                        const currentBatchSize = batchRes.results.length;
+                        // Tính toán vị trí bắt đầu dựa trên batch_num (1-indexed)
+                        const currentStartIdx = (batchRes.batch_num - 1) * batchsize;
+                        // const currentBatchSize = batchRes.results.length;
 
                         setTestItems(prev => {
                             const newItems = [...prev];
@@ -94,6 +125,7 @@ export default function Playground({ onNavigate }) {
                                             ...newItems[realIndex],
                                             loading: false,
                                             answer: resObj.answer || "Không có phản hồi.",
+                                            error: resObj.error || false, // Lưu trạng thái lỗi từ API
                                             time_executed: resObj.time_executed ? String(resObj.time_executed).replace('s', '') : "0"
                                         };
                                     }
@@ -105,7 +137,7 @@ export default function Playground({ onNavigate }) {
                         // CẬP NHẬT METADATA CỦA BATCH
                         setBatchMetadata(prev => {
                             const newMeta = [...prev];
-                            const existingIdx = newMeta.findIndex(m => m.batch_no === batchRes.batch_no);
+                            const existingIdx = newMeta.findIndex(m => m.batch_num === batchRes.batch_num);
                             if (existingIdx !== -1) {
                                 newMeta[existingIdx] = batchRes;
                             } else {
@@ -114,11 +146,10 @@ export default function Playground({ onNavigate }) {
                             return newMeta;
                         });
                         
-                        // Tăng pointer cho batch tiếp theo ngay sau khi xử lý xong dòng này
-                        questionPointer += currentBatchSize;
+                        // questionPointer += currentBatchSize; // Không cần
                     }
                 } catch (e) {
-                    console.error("Lỗi parse JSON chunk:", e);
+                    console.error("Lỗi xử lý JSON chunk hoặc logic cập nhật:", e, "Line:", line);
                 }
             }
         }
@@ -135,7 +166,10 @@ export default function Playground({ onNavigate }) {
         }
         console.error('Error processing stream:', error);
         setTestItems(prev => prev.map(item =>
-            ids.includes(item.id) ? { ...item, loading: false, answer: 'Lỗi kết nối API.' } : item
+            // Chỉ cập nhật lỗi cho những item vẫn đang loading (chưa có kết quả)
+            (ids.includes(item.id) && item.loading) 
+                ? { ...item, loading: false, answer: 'Lỗi kết nối API.', error: true } 
+                : item
         ));
         return false;
     }
@@ -212,45 +246,72 @@ export default function Playground({ onNavigate }) {
 
     // F. Xử lý chạy TẤT CẢ các câu hỏi (Gửi một lần duy nhất)
     const runAllTests = async () => {
-        // Chỉ lấy những câu hỏi có nội dung VÀ chưa có câu trả lời (để hỗ trợ Resume)
-        const questionsToRun = testItems.filter(item => item.question.trim() !== '' && !item.answer);
-        
-        if (questionsToRun.length === 0) {
-            const hasEmptyAnswers = testItems.some(item => item.question.trim() !== '' && !item.answer);
-            if (!hasEmptyAnswers) {
-                message.info("Tất cả câu hỏi đã có kết quả.");
-            } else {
-                message.warning("Vui lòng nhập nội dung câu hỏi trước khi chạy.");
+        let retries = 0;
+        const maxRetries = 3; // Thử lại tối đa 3 lần
+
+        const attemptRun = async () => {
+            // SỬ DỤNG REF để lấy data mới nhất (tránh bị stale closure khi retry)
+            const latestItems = testItemsRef.current;
+            const questionsToRun = latestItems.filter(item => 
+                item.question.trim() !== '' && (!item.answer || item.error)
+            );
+            
+            if (questionsToRun.length === 0) {
+                if (retries === 0) message.info("Tất cả câu hỏi đã có kết quả.");
+                return true;
             }
-            return;
-        }
 
-        const ids = questionsToRun.map(item => item.id);
-        setGlobalLoading(true);
-        // setBatchMetadata([]); // Không reset metadata để giữ thông tin các batch đã chạy trước đó
-        
-        setTestItems(prev => prev.map(item =>
-            ids.includes(item.id) ? { ...item, loading: true, answer: '' } : item
-        ));
+            const ids = questionsToRun.map(item => item.id);
+            setGlobalLoading(true);
+            
+            setTestItems(prev => prev.map(item =>
+                ids.includes(item.id) ? { ...item, loading: true, answer: '', error: false } : item
+            ));
 
-        message.loading({ content: `Đang xử lý ${questionsToRun.length} câu hỏi còn lại...`, key: 'runAll' });
+            const msgKey = 'runAll';
+            message.loading({ 
+                content: retries > 0 
+                    ? `Đang thử lại lần ${retries}/${maxRetries} cho ${questionsToRun.length} câu...` 
+                    : `Đang xử lý ${questionsToRun.length} câu hỏi...`, 
+                key: msgKey 
+            });
 
-        try {
-            const result = await processBatchAPI(questionsToRun);
+            try {
+                const result = await processBatchAPI(questionsToRun);
 
-            if (result === 'aborted') {
-                // Không làm gì thêm vì đã xử lý trong handlePause
-            } else if (result) {
-                message.success({ content: "Đã hoàn thành toàn bộ câu hỏi!", key: 'runAll', duration: 3 });
-            } else {
-                message.error({ content: "Có lỗi xảy ra trong quá trình xử lý.", key: 'runAll' });
+                if (result === 'aborted') {
+                    setGlobalLoading(false);
+                    return true; 
+                } else if (result) {
+                    message.success({ content: "Đã hoàn thành toàn bộ câu hỏi!", key: msgKey, duration: 3 });
+                    setGlobalLoading(false);
+                    return true;
+                } else {
+                    throw new Error("Batch processing failed");
+                }
+            } catch (error) {
+                console.error(`Attempt ${retries} failed:`, error);
+                
+                if (retries < maxRetries) {
+                    retries++;
+                    message.warning({ 
+                        content: `Kết nối gián đoạn. Thử lại (lần ${retries}/${maxRetries})...`, 
+                        key: msgKey,
+                        duration: 5
+                    });
+                    
+                    // Đợi 5 giây rồi thử lại
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    return attemptRun(); 
+                } else {
+                    message.error({ content: "Không thể kết nối. Vui lòng kiểm tra BE.", key: msgKey });
+                    setGlobalLoading(false);
+                    return false;
+                }
             }
-        } catch (error) {
-            console.error('Error processing all tests:', error);
-            message.error({ content: "Lỗi kết nối Server.", key: 'runAll' });
-        } finally {
-            setGlobalLoading(false);
-        }
+        };
+
+        await attemptRun();
     };
 
     // E. Xử lý xóa ô test
@@ -266,6 +327,9 @@ export default function Playground({ onNavigate }) {
         const safeValue = Math.max(1, Math.min(50, value));
         setBatchsize(safeValue);
     };
+    useEffect(() => {
+        console.log("Selected Model:", selectedModel);
+    }, [selectedModel]);
 
     return (
         <Layout className="min-h-screen bg-[#f1f5f9] font-sans">
@@ -325,16 +389,19 @@ export default function Playground({ onNavigate }) {
 
                         {/* Khối 2a: Chọn Model */}
                         <div className="space-y-2">
-                            <Text strong className="text-[10px] text-gray-500 uppercase tracking-widest block">Cấu hình Model</Text>
+                            <Text strong className="text-[10px] text-gray-500 uppercase tracking-widest block">Model</Text>
                             {/* <ModelSelect defaultValue={selectedModel} onChange={setSelectedModel} /> */}
                             <Select
                                 value={selectedModel}
-                                onChange={(_, option) => setSelectedModel(option.label)}
                                 className="w-full rounded-md"
                                 options={[
-                                    { value: 0, label: 'gemma-4-2b-a4b-it-4bit' },
-                                    { value: 1, label: 'gemma4-4b-it-4bit' },
+                                    // { value: '', label: 'Chọn model...' },
+                                    ...modelList.map((model) => ({
+                                        value: model,
+                                        label: model,
+                                    })),
                                 ]}
+                                onChange={(_, option) => setSelectedModel(option.label)}
                             />
                             {/* Giả lập Select cũ */}
                         </div>
@@ -386,11 +453,11 @@ export default function Playground({ onNavigate }) {
 
                             <Card size="small" variant={false} className="bg-white rounded-lg shadow-sm border border-gray-100">
                                 <Space orientation="vertical" className="w-full">
-                                    <Text type="secondary" className="text-xs">Số câu hỏi muốn test</Text>
+                                    <Text type="secondary" className="text-xs">Số câu hỏi</Text>
                                     <div className="flex gap-2">
                                         <InputNumber
                                             min={1}
-                                            max={50}
+                                            // max={50}
                                             value={numQuestions}
                                             onChange={setNumQuestions}
                                             className="flex-1 rounded-md"
@@ -406,10 +473,10 @@ export default function Playground({ onNavigate }) {
 
                             <Card size="small" variant={false} className="bg-white rounded-lg shadow-sm border border-gray-100">
                                 <Space orientation="vertical" className="w-full">
-                                    <Text type="secondary" className="text-xs">Upload file .txt (mỗi dòng 1 câu)</Text>
+                                    <Text type="secondary" className="text-xs">Upload text file (mỗi dòng 1 câu)</Text>
                                     <Upload beforeUpload={handleUploadFile} accept=".txt" showUploadList={false} className="w-full">
                                         <Button icon={<UploadOutlined />} className="w-full rounded-md" >
-                                            Chọn file TXT
+                                            Chọn file text
                                         </Button>
                                     </Upload>
                                 </Space>
@@ -486,7 +553,7 @@ export default function Playground({ onNavigate }) {
                         }
 
                         return batches.map((batch, batchIndex) => {
-                            const currentBatchMeta = batchMetadata.find(m => m.batch_no === batchIndex + 1);
+                            const currentBatchMeta = batchMetadata.find(m => m.batch_num === batchIndex + 1);
 
                             return (
                                 <div key={`batch-${batchIndex}`} className="mb-12">
