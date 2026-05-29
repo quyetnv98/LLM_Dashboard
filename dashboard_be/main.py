@@ -27,7 +27,7 @@ app.include_router(tagging_router)
 app.include_router(deleting_router) 
 
 def main():
-    uvicorn.run("main:app", host="0.0.0.0", port=8021, workers=1, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8021, workers=3, reload=True)
         
 if __name__ == "__main__":
     main()

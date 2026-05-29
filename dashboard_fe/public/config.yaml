@@ -2,9 +2,9 @@
 BE_URL: http://localhost
 BE_PORT: 8021
 ENDPOINT:
-  GET_DATA_COUNT: /api/process/statics
-  SEARCH: /api/process/search
-  FETCH_QUESTION: /api/process/fetch_question
-  TAGGING: /api/process/tagging
-  DELETING: /api/process/deleting
-  LIST_USERS_MODELS: /api/process/list_users_models
+  GET_DATA_COUNT: /api/v1/statics
+  SEARCH: /api/v1/search
+  FETCH_QUESTION: /api/v1/fetch_question
+  TAGGING: /api/v1/tagging
+  DELETING: /api/v1/deleting
+  LIST_USERS_MODELS: /api/v1/list_users_models

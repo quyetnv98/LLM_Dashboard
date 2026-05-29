@@ -15,6 +15,7 @@
     "js-yaml": "^4.1.1",
     "lucide-react": "^1.8.0",
     "mathjs": "^15.2.0",
+    "pnpm": "^11.1.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
