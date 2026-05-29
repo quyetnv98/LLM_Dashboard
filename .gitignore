@@ -11,3 +11,4 @@ dashboard_be/utils
 questions.txt
 .agents/
 be_restruct.bak/
+be_restruct/.env
