@@ -1,12 +1,5 @@
-__pycache__/
-*.py[cod]
-*$py.class
-.env
-.venv
-venv/
-ENV/
-*.db
-*.sqlite3
-.git/
-.gitignore
-routes/__pycache__/
+Dockerfile
+docker-compose.yml
+task.md
+restructure_plan.md
+database/
