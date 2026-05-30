@@ -12,4 +12,6 @@ services:
     volumes:
       - /mnt/d/Teca/VNeID/LLM_Dashboard/dashboard_be/database:/dashboard_backend/database
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8021"]
-    restart: always
+    env_file:
+      - .env
+    restart: unless-stopped

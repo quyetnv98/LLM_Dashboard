@@ -3,3 +3,4 @@ docker-compose.yml
 task.md
 restructure_plan.md
 database/
+.env

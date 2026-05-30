@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     #pydantic v2 sử dụng model_config 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=".env", #khi chạy container sẽ đọc thông tin từ file .env trên host thành os enviroment để map vào env trong container để đọc ko cần load lại từ file .env nên khi build có thể bỏ file .env
         extra="ignore",
         case_sensitive=True
     )
