@@ -10,5 +10,6 @@ services:
     environment:
       - DB_PATH=/dashboard_backend/database/answer_db.db
     volumes:
-      - /mnt/d/Teca/VNeID/LLM_Dashboard/database:/dashboard_backend/database
+      - /mnt/d/Teca/VNeID/LLM_Dashboard/dashboard_be/database:/dashboard_backend/database
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8021"]
     restart: always
