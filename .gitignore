@@ -1,0 +1,11 @@
+**/__pycache__/
+dashboard_be/database/
+dashboard_be/.env
+dashboard_fe/node_modules
+dashboard_fe/dist
+dashboard_fe/.env   
+dashboard_fe/Dockerfile
+dashboard_fe/public/config.yaml.bak
+dashboard_be_old
+questions.txt
+.agents/

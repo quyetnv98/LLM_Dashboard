@@ -1,0 +1,8 @@
+Dockerfile
+docker-compose.yml
+task.md
+restructure_plan.md
+walkthrough.md
+database/
+.env
+**/__pycache__

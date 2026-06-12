@@ -1,0 +1,17 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llm_dashboard_be:latest
+    container_name: c_llm_dashboard_be
+    ports:
+      - "8021:8021"
+    environment:
+      - DB_PATH=/dashboard_backend/database/answer_db.db
+    volumes:
+      - /mnt/d/Teca/VNeID/LLM_Dashboard/dashboard_be/database:/dashboard_backend/database
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8021"]
+    env_file:
+      - .env
+    restart: unless-stopped
